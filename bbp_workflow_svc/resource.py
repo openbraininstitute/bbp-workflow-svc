@@ -38,7 +38,7 @@ class ClusterID:
 
 
 @dataclass
-class ClusterResponse:
+class ClusterLoginInfo:
     """
     Response from the HPC resource provisioner API.
 
@@ -86,7 +86,7 @@ def request_cluster_and_wait(*, cluster_id: ClusterID, auth: dict | None) -> dic
 
     private_head_node_ip = get_response.json().get("headNode").get("privateIpAddress")
 
-    return ClusterResponse(
+    return ClusterLoginInfo(
         ssh_key=private_ssh_key,
         head_node_ip=private_head_node_ip,
     ) 

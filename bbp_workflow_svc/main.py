@@ -25,7 +25,7 @@ from tornado.httpclient import AsyncHTTPClient
 from bbp_workflow_svc import __version__ as VERSION
 from bbp_workflow_svc.auth import KEYCLOAK, SESSION_ID, KeycloakAuthHandler
 from bbp_workflow_svc.settings import DEBUG, L
-from bbp_workflow import resource
+from bbp_workflow_svc import resource
 
 WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
 

@@ -3,6 +3,7 @@
 REGISTRY?=$(ACCOUNT_ID).dkr.ecr.$(REGION).amazonaws.com
 IMAGE_NAME?=bbp-workflow-svc
 
+TAG ?= $(shell python3 -m setuptools_scm)
 
 define HELPTEXT
 Makefile usage
@@ -17,18 +18,19 @@ help:
 
 python_build:
 	pipx run build --sdist
+	@echo "TAG: $(TAG)"
 
 build_latest: python_build
-	docker build -t $(IMAGE_NAME):latest .
+	docker build -t $(IMAGE_NAME):$(TAG) . --platform=linux/amd64
 
 push_latest: build_latest
 	aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $(REGISTRY)
-	docker tag $(IMAGE_NAME):latest $(REGISTRY)/$(IMAGE_NAME):latest
-	docker push $(REGISTRY)/$(IMAGE_NAME):latest
+	docker tag $(IMAGE_NAME):$(TAG) $(REGISTRY)/$(IMAGE_NAME):$(TAG)
+	docker push $(REGISTRY)/$(IMAGE_NAME):$(TAG)
 	docker logout $(REGISTRY)
 
 local_server:
-	docker run -it --rm --user $$(id -u) -p 8100:8100 \
+	docker run -it --rm -p 8100:8100 \
 		-e DEBUG=True \
 		-e USER=$$(whoami) \
 		-e REDIRECT_URI=$$REDIRECT_URI \
@@ -43,4 +45,10 @@ local_server:
 		-e HPC_SIF_PREFIX=$$HPC_SIF_PREFIX \
 		-e NEXUS_BASE=$$NEXUS_BASE \
 		-e SESSION_ID=$$SESSION_ID \
-		$(IMAGE_NAME)
+		-e HPC_RESOURCE_PROVISIONER_API_URL=$$HPC_RESOURCE_PROVISIONER_API_URL \
+		-e AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
+                -e AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
+		-e AWS_DEFAULT_REGION=$$AWS_DEFAULT_REGION \
+		-e VIRTUAL_LAB=$$VIRTUAL_LAB \
+		-e "PROJECT"=$$PROJECT \
+		$(IMAGE_NAME):$(TAG) --platform=linux/amd64

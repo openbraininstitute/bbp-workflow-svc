@@ -18,7 +18,9 @@ REALM = os.getenv("KC_REALM")
 SECRET = os.getenv("KC_SCR")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 SUBJECT = os.getenv("KC_SUB")
-SESSION_ID = os.getenv("SESSION_ID")
+# SESSION_ID = os.getenv("SESSION_ID")
+VIRTUAL_LAB = os.getenv("VIRTUAL_LAB")
+PROJECT = os.getenv("PROJECT")
 
 USER_INFO = f"{AUTH_HOST}/auth/realms/{REALM}/protocol/openid-connect/userinfo"
 
@@ -64,7 +66,7 @@ class KeycloakAuthHandler(RequestHandler, KeycloakOAuth2Mixin):
 
     async def get(self):
         """."""
-        assert SESSION_ID == self.get_cookie("sessionid")
+        # assert SESSION_ID == self.get_cookie("sessionid")
         url = self.get_argument("url", None)
         if get_offline_token():
             if url is not None:

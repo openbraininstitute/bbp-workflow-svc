@@ -25,6 +25,7 @@ from tornado.httpclient import AsyncHTTPClient
 from bbp_workflow_svc import __version__ as VERSION
 from bbp_workflow_svc.auth import KEYCLOAK, SESSION_ID, KeycloakAuthHandler
 from bbp_workflow_svc.settings import DEBUG, L
+from bbp_workflow import resource
 
 WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
 
@@ -131,12 +132,29 @@ def _update_workflow_status(env, status):
         workflow.evolve(status=status, endedAtTime=datetime.utcnow()).publish(use_auth=token)
 
 
-def _run_worker(cmd_params, env, key):
+def _run_worker(cmd_params, env, project, virtual_lab):
+
     new_env = os.environ.copy()
     new_env |= env
+
+    try:
+        cluster_login_info = resource.request_cluster_and_wait(
+            cluster_id=resource.ClusterID(
+                project=project,
+                virtual_lab=virtual_lab,
+            ),
+        )
+    except Exception as e:
+        _update_workflow_status(env, "Failed")
+        raise
+
+    key = cluster_login_info.ssh_key
+    new_env["HPC_HEAD_NODE"] = cluster_login_info.head_node_ip
+
     try:
         with _ssh_agt(key) as ssh_auth_sock:
-            sh.luigi(*cmd_params, _env=new_env | ssh_auth_sock, _out=sys.stdout, _err=sys.stderr)
+            # sh.luigi(*cmd_params, _env=new_env | ssh_auth_sock, _out=sys.stdout, _err=sys.stderr)
+            print("Running")
         _update_workflow_status(env, "Done")
     except ErrorReturnCode:
         _update_workflow_status(env, "Failed")
@@ -252,6 +270,7 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
             self.set_status(403)
             return
         L.info("API launch: %s", task)
+
         env = {}
         if DEBUG:
             env |= {"DEBUG": "True"}
@@ -260,16 +279,17 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         cfg_name = self.get_body_argument("cfg_name", None)
         print(f"{cfg_name=}")
         timestamp = f"{datetime.now():%Y-%m-%d_%H-%M-%S.%f}"
+
         # FIXME
         buf, kg_params = _zip_files(self.request.files, cfg_name)
         print(f"{kg_params=}")
+
         env |= {k: v for k, v in kg_params.items() if v is not None}
-        if "Authorization" in self.request.headers:
-            key = b64decode(self.request.headers["Authorization"].encode()).decode()
-        else:
-            key = None
-        print()
-        workflow_execution = _launch(buf, env, key, timestamp, module_name, task_name, cfg_name)
+
+        project = self.get_body_argument("project", None)
+        virtual_lab = self.get_body_argument("virtual_lab", None)
+
+        workflow_execution = _launch(buf, env, project, virtual_lab, timestamp, module_name, task_name, cfg_name)
         if workflow_execution:
             self.write(workflow_execution)
         self.set_status(200)

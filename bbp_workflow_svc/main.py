@@ -307,16 +307,23 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         env = {}
         if DEBUG:
             env |= {"DEBUG": "True"}
+
+        if auth_token := self.request.headers.get("Authorization"):
+            env |= {"NEXUS_TOKEN": auth_token}
+
+        # e.g. bbp_workflow.sbo.sim.task, RunSimCampaignMeta
         module_name, task_name = task.rsplit(".", 1)
-        print(f"{module_name=} {task_name=}")
+        L.info("Module name: %s, Task name: %s", module_name, task_name)
+
         cfg_name = self.get_body_argument("cfg_name", None)
-        print(f"{cfg_name=}")
+        L.info("Config name: %s", cfg_name)
+
+        auth_token = self.request.headers.get("Authorization")
+
         timestamp = f"{datetime.now():%Y-%m-%d_%H-%M-%S.%f}"
 
         # FIXME
         buf, kg_params = _zip_files(self.request.files, cfg_name)
-
-        print(f"{kg_params=}")
 
         env |= {k: v for k, v in kg_params.items() if v is not None}
 
@@ -382,6 +389,7 @@ def main():
 
     call_later_fn = tornado.ioloop.IOLoop.current().call_later
     call_later_fn(IDLE_TIMEOUT, idle_culling, call_later_fn)
+
     luigi.server.run(address="127.0.0.1")
 
 

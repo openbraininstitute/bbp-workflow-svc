@@ -28,7 +28,7 @@ push_latest: build_latest
 	docker logout $(REGISTRY)
 
 local_server:
-	docker run -it --rm --user $$(id -u) -p 8100:8100 \
+	docker run -it --rm -p 8100:8100 \
 		-e DEBUG=True \
 		-e USER=$$(whoami) \
 		-e REDIRECT_URI=$$REDIRECT_URI \
@@ -43,4 +43,8 @@ local_server:
 		-e HPC_SIF_PREFIX=$$HPC_SIF_PREFIX \
 		-e NEXUS_BASE=$$NEXUS_BASE \
 		-e SESSION_ID=$$SESSION_ID \
-		$(IMAGE_NAME)
+		-e HPC_RESOURCE_PROVISIONER_API_URL=$$HPC_RESOURCE_PROVISIONER_API_URL \
+		-e AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
+        -e AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
+		-e AWS_DEFAULT_REGION=$$AWS_DEFAULT_REGION \
+		$(IMAGE_NAME) --platform=linux/amd64

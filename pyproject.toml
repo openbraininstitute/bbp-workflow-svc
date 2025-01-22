@@ -27,7 +27,9 @@ classifiers = [
 ]
 dependencies = [
   "bbp-workflow",
+  "boto3",
   "sh",
+  "requests-aws4auth"
 ]
 dynamic = ["version"]
 

@@ -7,7 +7,6 @@ import json
 import os
 import sys
 import zipfile
-from base64 import b64decode
 from configparser import BasicInterpolation, ConfigParser
 from contextlib import contextmanager
 from datetime import datetime
@@ -23,9 +22,9 @@ from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
 from bbp_workflow_svc import __version__ as VERSION
+from bbp_workflow_svc import resource
 from bbp_workflow_svc.auth import KEYCLOAK, SESSION_ID, KeycloakAuthHandler
 from bbp_workflow_svc.settings import DEBUG, L
-from bbp_workflow_svc import resource
 
 WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
 
@@ -130,6 +129,9 @@ def _update_workflow_status(env, status):
             workflow_id, base=base, org=org, proj=proj, use_auth=token
         )
         workflow.evolve(status=status, endedAtTime=datetime.utcnow()).publish(use_auth=token)
+        L.info("Workflow %s is updated with status %s", workflow_id, status)
+    else:
+        L.info("No workflow id to update. Workflow status: %s", status)
 
 
 def _run_worker(cmd_params, env, project, virtual_lab):
@@ -143,25 +145,25 @@ def _run_worker(cmd_params, env, project, virtual_lab):
                 project=project,
                 virtual_lab=virtual_lab,
             ),
+            auth=None,
         )
     except Exception as e:
         _update_workflow_status(env, "Failed")
-        raise
+        raise RuntimeError("Cluster failed to be provisioned for task.") from e
 
     key = cluster_login_info.ssh_key
     new_env["HPC_HEAD_NODE"] = cluster_login_info.head_node_ip
 
     try:
         with _ssh_agt(key) as ssh_auth_sock:
-            # sh.luigi(*cmd_params, _env=new_env | ssh_auth_sock, _out=sys.stdout, _err=sys.stderr)
-            print("Running")
+            sh.luigi(*cmd_params, _env=new_env | ssh_auth_sock, _out=sys.stdout, _err=sys.stderr)
         _update_workflow_status(env, "Done")
     except ErrorReturnCode:
         _update_workflow_status(env, "Failed")
         raise
 
 
-def _launch(buf, env, key, timestamp, module_name, task_name, cfg_name):
+def _launch(*, buf, env, timestamp, module_name, task_name, project, virtual_lab, cfg_name):
     # pylint: disable=too-many-positional-arguments
     """Launch the luigi task."""
     url = _reg_prov(buf, env, timestamp, module_name, task_name, cfg_name)
@@ -174,7 +176,7 @@ def _launch(buf, env, key, timestamp, module_name, task_name, cfg_name):
     cmd_params = ["--logging-conf-file", LOGGING_CFG_PATH, "--module", module_name, task_name]
     L.info("Launching: %s", cmd_params)
 
-    Thread(target=_run_worker, args=(cmd_params, env, key)).start()
+    Thread(target=_run_worker, args=(cmd_params, env, project, virtual_lab)).start()
 
     return url
 
@@ -289,7 +291,19 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         project = self.get_body_argument("project", None)
         virtual_lab = self.get_body_argument("virtual_lab", None)
 
-        workflow_execution = _launch(buf, env, project, virtual_lab, timestamp, module_name, task_name, cfg_name)
+        print("buf", buf)  # TODO: Remove when done
+        print("env", env)  # TODO: Remove when done
+
+        workflow_execution = _launch(
+            buf=buf,
+            env=env,
+            project=project,
+            virtual_lab=virtual_lab,
+            timestamp=timestamp,
+            module_name=module_name,
+            task_name=task_name,
+            cfg_name=cfg_name,
+        )
         if workflow_execution:
             self.write(workflow_execution)
         self.set_status(200)

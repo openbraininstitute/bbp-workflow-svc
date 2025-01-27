@@ -22,7 +22,7 @@ from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
 from bbp_workflow_svc import __version__ as VERSION
-from bbp_workflow_svc import resource
+from bbp_workflow_svc import environment, resource
 from bbp_workflow_svc.auth import KEYCLOAK, SESSION_ID, KeycloakAuthHandler
 from bbp_workflow_svc.settings import DEBUG, L
 
@@ -139,8 +139,11 @@ def _run_worker(cmd_params, env, project, virtual_lab):
     new_env = os.environ.copy()
     new_env |= env
 
+    api_url = (environment.get_hpc_resource_provisioner_api_url(),)
+
     try:
         cluster_login_info = resource.request_cluster_and_wait(
+            api_url=api_url,
             cluster_id=resource.ClusterID(
                 project=project,
                 virtual_lab=virtual_lab,
@@ -321,7 +324,7 @@ async def idle_culling(call_later_fn):
         if not worker_list:
             luigi.server.stop()
         call_later_fn(IDLE_TIMEOUT, idle_culling, call_later_fn)
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         luigi.server.stop()
 
 

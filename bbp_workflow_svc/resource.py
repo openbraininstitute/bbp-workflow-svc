@@ -1,7 +1,6 @@
 """HPC resource API management module."""
 
 import logging
-import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,7 +14,6 @@ from bbp_workflow_svc.aws import get_secret
 L = logging.getLogger(__name__)
 
 
-HPC_PROVISIONER_URL = os.getenv("HPC_RESOURCE_PROVISIONER_API_URL")
 REQUEST_TIMEOUT = 60
 
 
@@ -55,7 +53,7 @@ class ClusterLoginInfo:
     head_node_ip: str
 
 
-def request_cluster_and_wait(*, cluster_id: ClusterID, auth: dict | None) -> dict:
+def request_cluster_and_wait(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -> dict:
     """Request a cluster formation and wait until it's ready.
 
     Args:
@@ -77,22 +75,30 @@ def request_cluster_and_wait(*, cluster_id: ClusterID, auth: dict | None) -> dic
         )
 
     # returns secret for ssh key
-    post_response = request_cluster(cluster_id=cluster_id, auth=auth)
+    post_response = request_cluster(
+        api_url=api_url,
+        cluster_id=cluster_id,
+        auth=auth,
+    )
 
     if post_response.status_code != 200:
         L.error("Failed to allocate head node: %s", post_response.text)
-        raise
+        raise RuntimeError(f"Failed to allocate head node: {post_response.text}")
 
     private_ssh_key = get_secret(
         sm_client=boto3.client("secretsmanager"),
         secret_name=post_response.json()["cluster"]["private_ssh_key_arn"],
     )
 
-    get_response = wait_for_cluster_ready(cluster_id=cluster_id, auth=auth)
+    get_response = wait_for_cluster_ready(
+        api_url=api_url,
+        cluster_id=cluster_id,
+        auth=auth,
+    )
 
     if get_response.status_code != 200:
         L.error("Failed to provision resources: %s", get_response.text)
-        raise
+        raise RuntimeError(f"Failed to provision resources: {get_response.text}")
 
     private_head_node_ip = get_response.json().get("headNode").get("privateIpAddress")
 
@@ -102,7 +108,7 @@ def request_cluster_and_wait(*, cluster_id: ClusterID, auth: dict | None) -> dic
     )
 
 
-def request_cluster(*, cluster_id: ClusterID, auth: dict | None) -> dict:
+def request_cluster(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -> dict:
     """Request cluster allocation.
 
     cluster_id: The Cluster ID to request.
@@ -119,16 +125,16 @@ def request_cluster(*, cluster_id: ClusterID, auth: dict | None) -> dict:
         }
     """
     return requests.post(
-        _endpoint(cluster_id=cluster_id),
+        _endpoint(api_url=api_url, cluster_id=cluster_id),
         auth=auth,
         timeout=REQUEST_TIMEOUT,
     )
 
 
-def get_cluster_status(*, cluster_id: ClusterID, auth: dict | None) -> dict:
+def get_cluster_status(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -> dict:
     """Get cluster status response."""
     return requests.get(
-        _endpoint(cluster_id=cluster_id),
+        _endpoint(api_url=api_url, cluster_id=cluster_id),
         auth=auth,
         timeout=REQUEST_TIMEOUT,
     )
@@ -136,6 +142,7 @@ def get_cluster_status(*, cluster_id: ClusterID, auth: dict | None) -> dict:
 
 def wait_for_cluster_ready(
     *,
+    api_url: str,
     cluster_id: ClusterID,
     timeout: int = 3600,
     check_interval: int = 60,
@@ -147,6 +154,7 @@ def wait_for_cluster_ready(
     while (datetime.now() - start_time).total_seconds() < timeout:
 
         response = get_cluster_status(
+            api_url=api_url,
             cluster_id=cluster_id,
             auth=auth,
         )
@@ -170,13 +178,11 @@ def wait_for_cluster_ready(
     return None
 
 
-def _endpoint(cluster_id: ClusterID) -> str:
+def _endpoint(*, api_url: str, cluster_id: ClusterID) -> str:
     """Construct the endpoint for the HPC provisioner API.
 
     Note:
         project_id and vlab_id parameters should be sorted alphabetically.
     """
     project_id, vlab_id = cluster_id.project, cluster_id.virtual_lab
-    return (
-        f"{HPC_PROVISIONER_URL}/hpc-provisioner/pcluster?project_id={project_id}&vlab_id={vlab_id}"
-    )
+    return f"{api_url}/pcluster?project_id={project_id}&vlab_id={vlab_id}"

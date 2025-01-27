@@ -19,7 +19,7 @@ python_build:
 	pipx run build --sdist
 
 build_latest: python_build
-	docker build -t $(IMAGE_NAME):latest .
+	docker build -t $(IMAGE_NAME):latest . --platform=linux/amd64
 
 push_latest: build_latest
 	aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $(REGISTRY)
@@ -45,6 +45,6 @@ local_server:
 		-e SESSION_ID=$$SESSION_ID \
 		-e HPC_RESOURCE_PROVISIONER_API_URL=$$HPC_RESOURCE_PROVISIONER_API_URL \
 		-e AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
-        -e AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
+                -e AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
 		-e AWS_DEFAULT_REGION=$$AWS_DEFAULT_REGION \
 		$(IMAGE_NAME) --platform=linux/amd64

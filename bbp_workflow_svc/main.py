@@ -31,7 +31,7 @@ WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
 LUIGI_CFG_PATH = Path("/home/bbp-workflow/luigi.cfg")
 LOGGING_CFG_PATH = Path("/home/bbp-workflow/logging.cfg")
 
-IDLE_TIMEOUT = 200
+IDLE_TIMEOUT = 5 * 60  # seconds
 
 
 def _zip_files(files, cfg_name):

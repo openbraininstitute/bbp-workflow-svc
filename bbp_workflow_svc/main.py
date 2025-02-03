@@ -23,7 +23,7 @@ from tornado.httpclient import AsyncHTTPClient
 
 from bbp_workflow_svc import __version__ as VERSION
 from bbp_workflow_svc import environment, resource
-from bbp_workflow_svc.auth import KEYCLOAK, SESSION_ID, KeycloakAuthHandler
+from bbp_workflow_svc.auth import KEYCLOAK, VIRTUAL_LAB, PROJECT, KeycloakAuthHandler
 from bbp_workflow_svc.settings import DEBUG, L
 
 WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
@@ -191,7 +191,7 @@ class VersionHandler(tornado.web.RequestHandler):
 
     def get(self, *_, **__):
         """Get version."""
-        assert SESSION_ID == self.get_cookie("sessionid")
+        # assert SESSION_ID == self.get_cookie("sessionid")
         self.write(VERSION)
 
 
@@ -203,6 +203,19 @@ class HealthzHandler(tornado.web.RequestHandler):
     def get(self, *_, **__):
         """Get."""
         self.set_status(204)
+
+
+class TagsHandler(tornado.web.RequestHandler):
+    """Handle task id requests."""
+
+    # pylint: disable=abstract-method
+
+    def get(self, *_, **__):
+        """Get."""
+        self.write({
+            "virtual_lab": VIRTUAL_LAB,
+            "project": PROJECT,
+        })
 
 
 class DashboardHandler(tornado.web.RequestHandler):
@@ -271,9 +284,9 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
 
     def post(self, task):
         """Handle post."""
-        if SESSION_ID != self.get_cookie("sessionid"):
-            self.set_status(403)
-            return
+        #if SESSION_ID != self.get_cookie("sessionid"):
+        #    self.set_status(403)
+        #    return
         L.info("API launch: %s", task)
 
         env = {}
@@ -338,6 +351,7 @@ def main():
             ("/api/.*", DashboardHandler),
             ("/version/", VersionHandler),
             ("/healthz/", HealthzHandler),
+            ("/tags/", TagsHandler),
         ],
     )
     app.listen(8100)

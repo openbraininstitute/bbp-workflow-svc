@@ -139,7 +139,7 @@ def _run_worker(cmd_params, env, project, virtual_lab):
     new_env = os.environ.copy()
     new_env |= env
 
-    api_url = (environment.get_hpc_resource_provisioner_api_url(),)
+    api_url = environment.get_hpc_resource_provisioner_api_url()
 
     try:
         cluster_login_info = resource.request_cluster_and_wait(

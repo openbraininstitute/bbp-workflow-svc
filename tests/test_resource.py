@@ -2,6 +2,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 from bbp_workflow_svc import resource as test_module
 from bbp_workflow_svc.testing import patchenv
@@ -12,6 +13,20 @@ MOCK_SSH_KEY = "mock-private-key"
 MOCK_IP = "10.0.0.1"
 MOCK_SECRET_ARN = "arn:aws:secretsmanager:region:account:secret:name"
 MOCK_API_URL = "https://api-url"
+
+
+class MockResponse:
+    def __init__(self, json_data, text=""):
+        self._json_data = json_data
+        self.text = text
+
+    def json(self):
+        return self._json_data
+
+
+@pytest.fixture
+def mock_cluster_id():
+    return test_module.ClusterID(project="proj30", virtual_lab="vlab2")
 
 
 @pytest.fixture
@@ -63,7 +78,7 @@ def test_endpoint():
     )
 
 
-@patch("bbp_workflow_svc.resource.requests.post")
+@patch("bbp_workflow_svc.resource.make_request")
 def test_request_cluster(mock_post, mock_auth, mock_successful_post_response):
     mock_post.return_value = mock_successful_post_response
 
@@ -76,7 +91,17 @@ def test_request_cluster(mock_post, mock_auth, mock_successful_post_response):
     assert response.json()["cluster"]["private_ssh_key_arn"] == MOCK_SECRET_ARN
 
 
-@patch("bbp_workflow_svc.resource.requests.get")
+@patch("bbp_workflow_svc.resource.make_request")
+def test_request_cluster_failure(mock_post, mock_auth):
+    mock_post.side_effect = requests.exceptions.HTTPError("Mocked HTTP error")
+
+    with pytest.raises(RuntimeError, match="Failed to allocate head node: Mocked HTTP error"):
+        test_module.request_cluster(
+            api_url=MOCK_API_URL, cluster_id=MOCK_CLUSTER_ID, auth=mock_auth
+        )
+
+
+@patch("bbp_workflow_svc.resource.make_request")
 def test_get_cluster_status(mock_get, mock_auth, mock_successful_get_response):
     mock_get.return_value = mock_successful_get_response
 
@@ -89,9 +114,9 @@ def test_get_cluster_status(mock_get, mock_auth, mock_successful_get_response):
     assert response.json()["headNode"]["privateIpAddress"] == MOCK_IP
 
 
-@patch("bbp_workflow_svc.resource.requests.get")
-def test_wait_for_cluster_ready_success(mock_get, mock_auth, mock_successful_get_response):
-    mock_get.return_value = mock_successful_get_response
+@patch("bbp_workflow_svc.resource.make_request")
+def test_wait_for_cluster_ready_success(mock_make_request, mock_auth, mock_successful_get_response):
+    mock_make_request.return_value = mock_successful_get_response
 
     response = test_module.wait_for_cluster_ready(
         api_url=MOCK_API_URL,
@@ -102,14 +127,14 @@ def test_wait_for_cluster_ready_success(mock_get, mock_auth, mock_successful_get
     )
 
     assert response == mock_successful_get_response
-    mock_get.assert_called()
+    mock_make_request.assert_called()
 
 
-@patch("bbp_workflow_svc.resource.requests.get")
-def test_wait_for_cluster_ready_failure(mock_get, mock_auth):
+@patch("bbp_workflow_svc.resource.make_request")
+def test_wait_for_cluster_ready_failure(mock_make_request, mock_auth):
     mock_response = Mock()
     mock_response.json.return_value = {"clusterStatus": "CREATE_FAILED"}
-    mock_get.return_value = mock_response
+    mock_make_request.return_value = mock_response
 
     response = test_module.wait_for_cluster_ready(
         api_url=MOCK_API_URL,
@@ -120,48 +145,72 @@ def test_wait_for_cluster_ready_failure(mock_get, mock_auth):
     )
 
     assert response is None
-    mock_get.assert_called()
+    mock_make_request.assert_called()
 
 
-@patch("bbp_workflow_svc.resource.boto3.Session")
-@patch("bbp_workflow_svc.resource.boto3.client")
-@patch("bbp_workflow_svc.resource.requests.post")
-@patch("bbp_workflow_svc.resource.requests.get")
+@patch("bbp_workflow_svc.resource.get_cluster_status")
+def test_wait_for_cluster_ready_timeout(mock_get_cluster_status, mock_auth):
+    mock_get_cluster_status.return_value = MockResponse({"clusterStatus": "CREATE_IN_PROGRESS"})
+
+    with pytest.raises(RuntimeError, match="Timeout waiting for cluster"):
+        test_module.wait_for_cluster_ready(
+            api_url=MOCK_API_URL,
+            cluster_id=MOCK_CLUSTER_ID,
+            auth=mock_auth,
+            check_interval=0.01,
+            timeout=0.01,
+        )
+
+
+def test_fetch_response_entry_success():
+    # Test nested data retrieval
+    response = MockResponse(
+        {
+            "cluster": {
+                "private_ssh_key_arn": "arn:aws:secretsmanager:123",
+                "headNode": {"privateIpAddress": "10.0.0.1"},
+            }
+        }
+    )
+
+    res = test_module._fetch_response_entry(response, "cluster.private_ssh_key_arn")
+    assert res == "arn:aws:secretsmanager:123"
+
+    res = test_module._fetch_response_entry(response, "cluster.headNode.privateIpAddress")
+    assert res == "10.0.0.1"
+
+
+def test_fetch_response_entry_empty_response():
+    response = MockResponse(None, text="Empty response")
+
+    with pytest.raises(RuntimeError, match="Response has no data: Empty response"):
+        test_module._fetch_response_entry(response, "any.key")
+
+
+def test_fetch_response_entry_missing_key():
+    response = MockResponse({"cluster": {"someOtherKey": "value"}})
+
+    with pytest.raises(RuntimeError, match="Response data has no key: cluster.private_ssh_key_arn"):
+        test_module._fetch_response_entry(response, "cluster.private_ssh_key_arn")
+
+
+@patch("bbp_workflow_svc.resource.request_cluster")
 @patch("bbp_workflow_svc.resource.get_secret")
+@patch("bbp_workflow_svc.resource.wait_for_cluster_ready")
 def test_request_cluster_and_wait(
-    mock_get_secret,
-    mock_get,
-    mock_post,
-    mock_boto3_client,
-    mock_boto3_session,
-    mock_successful_post_response,
-    mock_successful_get_response,
+    mock_wait_for_cluster_ready, mock_get_secret, mock_request_cluster
 ):
-    # Setup mocks
-    mock_post.return_value = mock_successful_post_response
-    mock_get.return_value = mock_successful_get_response
-    mock_get_secret.return_value = MOCK_SSH_KEY
 
-    # Mock AWS session
-    mock_credentials = Mock()
-    mock_credentials.access_key = "mock-access-key"
-    mock_credentials.secret_key = "mock-secret-key"
-    mock_credentials.token = "mock-token"
-    mock_session = Mock()
-    mock_session.get_credentials.return_value = mock_credentials
-    mock_session.region_name = "mock-region"
-    mock_boto3_session.return_value = mock_session
-
-    result = test_module.request_cluster_and_wait(
-        api_url=MOCK_API_URL, cluster_id=MOCK_CLUSTER_ID, auth=None
+    mock_request_cluster.return_value = MockResponse(
+        {"cluster": {"private_ssh_key_arn": "arn:aws:secretsmanager:123"}}
     )
 
-    assert isinstance(result, test_module.ClusterLoginInfo)
-    assert result.ssh_key == MOCK_SSH_KEY
-    assert result.head_node_ip == MOCK_IP
+    mock_get_secret.return_value = "secret-key"
 
-    mock_post.assert_called_once()
-    mock_get.assert_called()
-    mock_get_secret.assert_called_once_with(
-        sm_client=mock_boto3_client.return_value, secret_name=MOCK_SECRET_ARN
+    mock_wait_for_cluster_ready.return_value = MockResponse(
+        {"headNode": {"privateIpAddress": "10.0.0.1"}}
     )
+
+    result = test_module.request_cluster_and_wait(api_url=MOCK_API_URL, cluster_id=None, auth=None)
+
+    assert result == test_module.ClusterLoginInfo(ssh_key="secret-key", head_node_ip="10.0.0.1")

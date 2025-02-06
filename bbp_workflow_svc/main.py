@@ -23,7 +23,8 @@ from tornado.httpclient import AsyncHTTPClient
 
 from bbp_workflow_svc import __version__ as VERSION
 from bbp_workflow_svc import environment, resource
-from bbp_workflow_svc.auth import KEYCLOAK, VIRTUAL_LAB, PROJECT, KeycloakAuthHandler
+from bbp_workflow_svc.auth import KEYCLOAK, KeycloakAuthHandler
+from bbp_workflow_svc.environment import PROJECT, VIRTUAL_LAB
 from bbp_workflow_svc.settings import DEBUG, L
 
 WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
@@ -141,6 +142,8 @@ def _run_worker(cmd_params, env, project, virtual_lab):
 
     api_url = environment.get_hpc_resource_provisioner_api_url()
 
+    L.info("Provisioner API URL: %s", api_url)
+
     try:
         cluster_login_info = resource.request_cluster_and_wait(
             api_url=api_url,
@@ -212,10 +215,12 @@ class TagsHandler(tornado.web.RequestHandler):
 
     def get(self, *_, **__):
         """Get."""
-        self.write({
-            "virtual_lab": VIRTUAL_LAB,
-            "project": PROJECT,
-        })
+        self.write(
+            {
+                "virtual_lab": VIRTUAL_LAB,
+                "project": PROJECT,
+            }
+        )
 
 
 class DashboardHandler(tornado.web.RequestHandler):
@@ -284,7 +289,7 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
 
     def post(self, task):
         """Handle post."""
-        #if SESSION_ID != self.get_cookie("sessionid"):
+        # if SESSION_ID != self.get_cookie("sessionid"):
         #    self.set_status(403)
         #    return
         L.info("API launch: %s", task)
@@ -306,6 +311,20 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
 
         project = self.get_body_argument("project", None)
         virtual_lab = self.get_body_argument("virtual_lab", None)
+
+        if project is None:
+            project = PROJECT
+
+        if virtual_lab is None:
+            virtual_lab = VIRTUAL_LAB
+
+        if project != PROJECT or virtual_lab != VIRTUAL_LAB:
+            raise RuntimeError(
+                f"Project or virtual lab received from the request does not match the instance's "
+                f"project or virtual lab. "
+                f"project: {project}, virtual_lab: {virtual_lab}\n"
+                f"PROJECT: {PROJECT}, VIRTUAL_LAB: {VIRTUAL_LAB}"
+            )
 
         print("buf", buf)  # TODO: Remove when done
         print("env", env)  # TODO: Remove when done

@@ -19,12 +19,12 @@ python_build:
 	pipx run build --sdist
 
 build_latest: python_build
-	docker build -t $(IMAGE_NAME):latest . --platform=linux/amd64
+	docker build -t $(IMAGE_NAME):$(TAG) . --platform=linux/amd64
 
 push_latest: build_latest
 	aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $(REGISTRY)
-	docker tag $(IMAGE_NAME):latest $(REGISTRY)/$(IMAGE_NAME):latest
-	docker push $(REGISTRY)/$(IMAGE_NAME):latest
+	docker tag $(IMAGE_NAME):$(TAG) $(REGISTRY)/$(IMAGE_NAME):$(TAG)
+	docker push $(REGISTRY)/$(IMAGE_NAME):$(TAG)
 	docker logout $(REGISTRY)
 
 local_server:

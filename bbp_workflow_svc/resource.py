@@ -7,14 +7,11 @@ from datetime import datetime
 
 import boto3
 import requests
-from requests_aws4auth import AWS4Auth
 
 from bbp_workflow_svc.aws import get_secret
+from bbp_workflow_svc.util import make_request
 
 L = logging.getLogger(__name__)
-
-
-REQUEST_TIMEOUT = 60
 
 
 @dataclass
@@ -60,52 +57,56 @@ def request_cluster_and_wait(*, api_url: str, cluster_id: ClusterID, auth: dict 
         cluster_id: The Cluster ID to request.
         auth: Optional authentication headers.
     """
-    if auth is None:
-        # Create a session with AWS SigV4 signing
-        session = boto3.Session()
-        credentials = session.get_credentials()
 
-        # Create request headers with AWS SigV4 authentication
-        auth = AWS4Auth(
-            credentials.access_key,
-            credentials.secret_key,
-            session.region_name,
-            "execute-api",
-            session_token=credentials.token,
-        )
-
-    # returns secret for ssh key
+    # returns response with secret for ssh key
     post_response = request_cluster(
         api_url=api_url,
         cluster_id=cluster_id,
         auth=auth,
     )
 
-    if post_response.status_code != 200:
-        L.error("Failed to allocate head node: %s", post_response.text)
-        raise RuntimeError(f"Failed to allocate head node: {post_response.text}")
+    secret_name = _fetch_response_entry(post_response, "cluster.private_ssh_key_arn")
 
     private_ssh_key = get_secret(
         sm_client=boto3.client("secretsmanager"),
-        secret_name=post_response.json()["cluster"]["private_ssh_key_arn"],
+        secret_name=secret_name,
     )
 
+    # returns response with head node ip
     get_response = wait_for_cluster_ready(
         api_url=api_url,
         cluster_id=cluster_id,
         auth=auth,
     )
 
-    if get_response.status_code != 200:
-        L.error("Failed to provision resources: %s", get_response.text)
-        raise RuntimeError(f"Failed to provision resources: {get_response.text}")
-
-    private_head_node_ip = get_response.json().get("headNode").get("privateIpAddress")
+    private_head_node_ip = _fetch_response_entry(get_response, "headNode.privateIpAddress")
 
     return ClusterLoginInfo(
         ssh_key=private_ssh_key,
         head_node_ip=private_head_node_ip,
     )
+
+
+def _fetch_response_entry(response: requests.Response, key: str) -> dict:
+    """Fetch an entry from the response JSON.
+
+    key is a dot-separated path to the entry, e.g. "foo.bar.baz" corresponding to
+    the JSON entry `{"foo": {"bar": {"baz": "qux"}}}`.
+    """
+
+    if not (data := response.json()):
+        raise RuntimeError(f"Response has no data: {response.text}")
+
+    value = data
+    keys = key.split(".")
+
+    try:
+        for current_key in keys:
+            value = value[current_key]
+    except KeyError:
+        raise RuntimeError(f"Response data has no key: {key}")
+
+    return value
 
 
 def request_cluster(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -> dict:
@@ -124,19 +125,25 @@ def request_cluster(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -
             }
         }
     """
-    return requests.post(
-        _endpoint(api_url=api_url, cluster_id=cluster_id),
-        auth=auth,
-        timeout=REQUEST_TIMEOUT,
-    )
+    try:
+        response = make_request(
+            _endpoint(api_url=api_url, cluster_id=cluster_id),
+            method="POST",
+            auth=auth,
+        )
+    except requests.exceptions.HTTPError as e:
+        L.error("Failed to allocate head node: %s", e)
+        raise RuntimeError(f"Failed to allocate head node: {e}") from e
+
+    return response
 
 
 def get_cluster_status(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -> dict:
     """Get cluster status response."""
-    return requests.get(
+    return make_request(
         _endpoint(api_url=api_url, cluster_id=cluster_id),
+        method="GET",
         auth=auth,
-        timeout=REQUEST_TIMEOUT,
     )
 
 
@@ -159,7 +166,7 @@ def wait_for_cluster_ready(
             auth=auth,
         )
 
-        status = response.json().get("clusterStatus")
+        status = _fetch_response_entry(response, "clusterStatus")
 
         if status == "CREATE_COMPLETE":
             L.info("Cluster %s is ready.", cluster_id)
@@ -175,7 +182,7 @@ def wait_for_cluster_ready(
 
     L.error("Timeout waiting for cluster %s to become ready.", cluster_id)
 
-    return None
+    raise RuntimeError(f"Timeout waiting for cluster {cluster_id} to become ready.")
 
 
 def _endpoint(*, api_url: str, cluster_id: ClusterID) -> str:

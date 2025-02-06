@@ -66,7 +66,7 @@ class KeycloakAuthHandler(RequestHandler, KeycloakOAuth2Mixin):
 
     async def get(self):
         """."""
-        #assert SESSION_ID == self.get_cookie("sessionid")
+        # assert SESSION_ID == self.get_cookie("sessionid")
         url = self.get_argument("url", None)
         if get_offline_token():
             if url is not None:

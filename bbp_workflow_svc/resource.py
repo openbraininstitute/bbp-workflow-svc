@@ -8,8 +8,7 @@ from datetime import datetime
 import boto3
 import requests
 
-from bbp_workflow_svc.aws import get_secret
-from bbp_workflow_svc.util import make_request
+from bbp_workflow_svc.aws import get_secret, make_aws_signed_request
 
 L = logging.getLogger(__name__)
 
@@ -57,7 +56,6 @@ def request_cluster_and_wait(*, api_url: str, cluster_id: ClusterID, auth: dict 
         cluster_id: The Cluster ID to request.
         auth: Optional authentication headers.
     """
-
     # returns response with secret for ssh key
     post_response = request_cluster(
         api_url=api_url,
@@ -125,26 +123,30 @@ def request_cluster(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -
             }
         }
     """
-    try:
-        response = make_request(
-            _endpoint(api_url=api_url, cluster_id=cluster_id),
-            method="POST",
-            auth=auth,
-        )
-    except requests.exceptions.HTTPError as e:
-        L.error("Failed to allocate head node: %s", e)
-        raise RuntimeError(f"Failed to allocate head node: {e}") from e
+    response = make_aws_signed_request(
+        url=_endpoint(api_url=api_url, cluster_id=cluster_id),
+        method="POST",
+        body=None,
+        service_name="execute-api",
+        headers={},
+    )
 
     return response
 
 
-def get_cluster_status(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -> dict:
+def get_cluster_status(*, api_url: str, cluster_id: ClusterID, auth: dict | None = None) -> dict:
     """Get cluster status response."""
-    return make_request(
-        _endpoint(api_url=api_url, cluster_id=cluster_id),
-        method="GET",
-        auth=auth,
-    )
+    try:
+        return make_aws_signed_request(
+            url=_endpoint(api_url=api_url, cluster_id=cluster_id),
+            method="GET",
+            body=None,
+            service_name="execute-api",
+            headers={},
+        )
+    except requests.exceptions.HTTPError as e:
+        L.error("Failed to get cluster status: %s", e)
+        raise RuntimeError(f"Failed to get cluster status: {e}") from e
 
 
 def wait_for_cluster_ready(

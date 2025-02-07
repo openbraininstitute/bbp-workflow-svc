@@ -30,5 +30,10 @@ def make_request(
 ) -> requests.Response:
     """Make a request to the given URL with the given method and data."""
     response = requests.request(method, url, headers=headers, json=data, auth=auth, timeout=timeout)
-    response.raise_for_status()
+
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(f"Failed to make request: {response.text}") from e
+
     return response

@@ -78,45 +78,37 @@ def test_endpoint():
     )
 
 
-@patch("bbp_workflow_svc.resource.make_request")
-def test_request_cluster(mock_post, mock_auth, mock_successful_post_response):
-    mock_post.return_value = mock_successful_post_response
+@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+def test_request_cluster(mock_make_aws_signed_request, mock_auth, mock_successful_post_response):
+    mock_make_aws_signed_request.return_value = mock_successful_post_response
 
     response = test_module.request_cluster(
         api_url=MOCK_API_URL, cluster_id=MOCK_CLUSTER_ID, auth=mock_auth
     )
 
-    mock_post.assert_called_once()
+    mock_make_aws_signed_request.assert_called_once()
     assert response.status_code == 200
     assert response.json()["cluster"]["private_ssh_key_arn"] == MOCK_SECRET_ARN
 
 
-@patch("bbp_workflow_svc.resource.make_request")
-def test_request_cluster_failure(mock_post, mock_auth):
-    mock_post.side_effect = requests.exceptions.HTTPError("Mocked HTTP error")
-
-    with pytest.raises(RuntimeError, match="Failed to allocate head node: Mocked HTTP error"):
-        test_module.request_cluster(
-            api_url=MOCK_API_URL, cluster_id=MOCK_CLUSTER_ID, auth=mock_auth
-        )
-
-
-@patch("bbp_workflow_svc.resource.make_request")
-def test_get_cluster_status(mock_get, mock_auth, mock_successful_get_response):
-    mock_get.return_value = mock_successful_get_response
+@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+def test_get_cluster_status(mock_make_aws_signed_request, mock_auth, mock_successful_get_response):
+    mock_make_aws_signed_request.return_value = mock_successful_get_response
 
     response = test_module.get_cluster_status(
         api_url=MOCK_API_URL, cluster_id=MOCK_CLUSTER_ID, auth=mock_auth
     )
 
-    mock_get.assert_called_once()
+    mock_make_aws_signed_request.assert_called_once()
     assert response.status_code == 200
     assert response.json()["headNode"]["privateIpAddress"] == MOCK_IP
 
 
-@patch("bbp_workflow_svc.resource.make_request")
-def test_wait_for_cluster_ready_success(mock_make_request, mock_auth, mock_successful_get_response):
-    mock_make_request.return_value = mock_successful_get_response
+@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+def test_wait_for_cluster_ready_success(
+    mock_make_aws_signed_request, mock_auth, mock_successful_get_response
+):
+    mock_make_aws_signed_request.return_value = mock_successful_get_response
 
     response = test_module.wait_for_cluster_ready(
         api_url=MOCK_API_URL,
@@ -127,14 +119,14 @@ def test_wait_for_cluster_ready_success(mock_make_request, mock_auth, mock_succe
     )
 
     assert response == mock_successful_get_response
-    mock_make_request.assert_called()
+    mock_make_aws_signed_request.assert_called()
 
 
-@patch("bbp_workflow_svc.resource.make_request")
-def test_wait_for_cluster_ready_failure(mock_make_request, mock_auth):
+@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+def test_wait_for_cluster_ready_failure(mock_make_aws_signed_request, mock_auth):
     mock_response = Mock()
     mock_response.json.return_value = {"clusterStatus": "CREATE_FAILED"}
-    mock_make_request.return_value = mock_response
+    mock_make_aws_signed_request.return_value = mock_response
 
     response = test_module.wait_for_cluster_ready(
         api_url=MOCK_API_URL,
@@ -145,7 +137,7 @@ def test_wait_for_cluster_ready_failure(mock_make_request, mock_auth):
     )
 
     assert response is None
-    mock_make_request.assert_called()
+    mock_make_aws_signed_request.assert_called()
 
 
 @patch("bbp_workflow_svc.resource.get_cluster_status")

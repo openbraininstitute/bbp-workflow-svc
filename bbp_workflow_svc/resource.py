@@ -123,13 +123,17 @@ def request_cluster(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -
             }
         }
     """
-    response = make_aws_signed_request(
-        url=_endpoint(api_url=api_url, cluster_id=cluster_id),
-        method="POST",
-        body=None,
-        service_name="execute-api",
-        headers={},
-    )
+    try:
+        response = make_aws_signed_request(
+            url=_endpoint(api_url=api_url, cluster_id=cluster_id),
+            method="POST",
+            body=None,
+            service_name="execute-api",
+            headers={},
+        )
+    except requests.exceptions.HTTPError as e:
+        L.error("Failed to allocate head node: %s", e)
+        raise RuntimeError(f"Failed to allocate head node: {e}") from e
 
     return response
 
@@ -162,23 +166,28 @@ def wait_for_cluster_ready(
 
     while (datetime.now() - start_time).total_seconds() < timeout:
 
-        response = get_cluster_status(
-            api_url=api_url,
-            cluster_id=cluster_id,
-            auth=auth,
-        )
+        try:
+            response = get_cluster_status(
+                api_url=api_url,
+                cluster_id=cluster_id,
+                auth=auth,
+            )
 
-        status = _fetch_response_entry(response, "clusterStatus")
+            status = _fetch_response_entry(response, "clusterStatus")
 
-        if status == "CREATE_COMPLETE":
-            L.info("Cluster %s is ready.", cluster_id)
-            return response
+            if status == "CREATE_COMPLETE":
+                L.info("Cluster %s is ready.", cluster_id)
+                return response
 
-        if status == "CREATE_FAILED":
-            L.error("Cluster %s failed to become ready.", cluster_id)
-            return None
+            if status == "CREATE_FAILED":
+                L.error("Cluster %s failed to become ready.", cluster_id)
+                return None
 
-        L.debug("Cluster %s status: %s", cluster_id, status)
+            L.debug("Cluster %s status: %s", cluster_id, status)
+
+        # the cluster takes some time to show up as being created
+        except RuntimeError as e:
+            L.error("Failed to get cluster status: %s", e)
 
         time.sleep(check_interval)
 

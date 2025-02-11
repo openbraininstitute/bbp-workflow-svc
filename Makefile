@@ -3,6 +3,7 @@
 REGISTRY?=$(ACCOUNT_ID).dkr.ecr.$(REGION).amazonaws.com
 IMAGE_NAME?=bbp-workflow-svc
 
+TAG ?= $(shell python3 -m setuptools_scm)
 
 define HELPTEXT
 Makefile usage
@@ -17,6 +18,7 @@ help:
 
 python_build:
 	pipx run build --sdist
+	@echo "TAG: $(TAG)"
 
 build_latest: python_build
 	docker build -t $(IMAGE_NAME):$(TAG) . --platform=linux/amd64
@@ -49,4 +51,4 @@ local_server:
 		-e AWS_DEFAULT_REGION=$$AWS_DEFAULT_REGION \
 		-e VIRTUAL_LAB=$$VIRTUAL_LAB \
 		-e "PROJECT"=$$PROJECT \
-		$(IMAGE_NAME) --platform=linux/amd64
+		$(IMAGE_NAME):$(TAG) --platform=linux/amd64

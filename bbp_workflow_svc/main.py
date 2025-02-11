@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse, urlunparse
+from entity_management.core import DataDownload, WorkflowExecution
 
 import luigi.server
 import sh
@@ -32,7 +33,7 @@ WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
 LUIGI_CFG_PATH = Path("/home/bbp-workflow/luigi.cfg")
 LOGGING_CFG_PATH = Path("/home/bbp-workflow/logging.cfg")
 
-IDLE_TIMEOUT = 5 * 60  # seconds
+IDLE_TIMEOUT = 100 * 5 * 60  # seconds
 
 
 def _zip_files(files, cfg_name):
@@ -174,12 +175,22 @@ def _launch(*, buf, env, timestamp, module_name, task_name, project, virtual_lab
     """Launch the luigi task."""
     url = _reg_prov(buf, env, timestamp, module_name, task_name, cfg_name)
     workflows_path = WORKFLOWS_PATH / timestamp
+
     _dump_files(buf, workflows_path)
     env["PYTHONPATH"] = str(workflows_path)
+
     if cfg_name:
+        L.info("Copied config file to: %s", workflows_path / cfg_name)
         env["LUIGI_CONFIG_PATH"] = str(workflows_path / cfg_name)
 
-    cmd_params = ["--logging-conf-file", LOGGING_CFG_PATH, "--module", module_name, task_name]
+    cmd_params = [
+        "--logging-conf-file",
+        LOGGING_CFG_PATH,
+        "--module",
+        module_name,
+        task_name,
+    ]
+
     L.info("Launching: %s", cmd_params)
 
     Thread(target=_run_worker, args=(cmd_params, env, project, virtual_lab)).start()
@@ -305,18 +316,13 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
 
         # FIXME
         buf, kg_params = _zip_files(self.request.files, cfg_name)
+
         print(f"{kg_params=}")
 
         env |= {k: v for k, v in kg_params.items() if v is not None}
 
-        project = self.get_body_argument("project", None)
-        virtual_lab = self.get_body_argument("virtual_lab", None)
-
-        if project is None:
-            project = PROJECT
-
-        if virtual_lab is None:
-            virtual_lab = VIRTUAL_LAB
+        project = self.request.headers.get("project-id")
+        virtual_lab = self.request.headers.get("virtual-lab-id")
 
         if project != PROJECT or virtual_lab != VIRTUAL_LAB:
             raise RuntimeError(

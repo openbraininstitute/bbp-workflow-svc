@@ -4,10 +4,13 @@ This module handles environment-specific configuration and provides
 functions to access environment variables required by the service.
 """
 
-from bbp_workflow_svc.util import get_required_env
+from bbp_workflow_svc.util import get_env
 
-PROJECT = get_required_env(name="PROJECT")
-VIRTUAL_LAB = get_required_env(name="VIRTUAL_LAB")
+# The virtual lab project id
+PROJECT = get_env(name="PROJECT", required=True)
+
+# The vrtual lab id
+VIRTUAL_LAB = get_env(name="VIRTUAL_LAB", required=True)
 
 
 def get_hpc_resource_provisioner_api_url() -> str:

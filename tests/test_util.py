@@ -8,33 +8,37 @@ from bbp_workflow_svc.testing import patchenv
 
 
 @patchenv(TEST_ENV_VAR="test_value")
-def test_get_required_env_returns_value():
+def test_get_env_returns_value():
 
-    result = test_module.get_required_env("TEST_ENV_VAR")
+    result = test_module.get_env("TEST_ENV_VAR", required=True)
 
     assert result == "test_value"
 
 
 @patchenv()
-def test_get_required_env_raises_error_when_not_set():
+def test_get_env_raises_error_when_not_set():
 
     test_var_name = "FOO"
 
     expected_str = f"Required environment variable '{test_var_name}' is not set."
 
     with pytest.raises(ValueError, match=expected_str) as exc_info:
-        test_module.get_required_env(test_var_name)
+        test_module.get_env(test_var_name, required=True)
+
+    assert not test_module.get_env(test_var_name, required=False)
 
 
 @patchenv(FOO="")
-def test_get_required_env_raises_error_when_not_set():
+def test_get_env_raises_error_when_not_set():
 
     test_var_name = "FOO"
 
     expected_str = f"Required environment variable '{test_var_name}' cannot be empty."
 
     with pytest.raises(ValueError, match=expected_str) as exc_info:
-        test_module.get_required_env(test_var_name)
+        test_module.get_env(test_var_name, required=True)
+
+    assert not test_module.get_env(test_var_name, required=False)
 
 
 def test_make_request_success():

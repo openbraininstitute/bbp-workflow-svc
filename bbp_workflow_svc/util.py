@@ -9,13 +9,19 @@ import os
 import requests
 
 
-def get_required_env(name: str) -> str:
+def get_env(name: str, required: bool = False) -> str:
     """Get a required environment variable or raise an error."""
-    value = os.getenv(name)
+    value = os.getenv(name, None)
+
+    if not required:
+        return value
+
     if value is None:
         raise ValueError(f"Required environment variable '{name}' is not set.")
+
     if not value.strip():
         raise ValueError(f"Required environment variable '{name}' cannot be empty.")
+
     return value
 
 
@@ -34,6 +40,14 @@ def make_request(
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        raise RuntimeError(f"Failed to make request: {response.text}") from e
+        error_msg = (
+            f"Request failed:\n"
+            f"URL: {url}\n"
+            f"Method: {method}\n"
+            f"Status code: {response.status_code}\n"
+            f"Response headers: {dict(response.headers)}\n"
+            f"Response body: {response.text}"
+        )
+        raise RuntimeError(error_msg) from e
 
     return response

@@ -133,7 +133,7 @@ def request_cluster(*, api_url: str, cluster_id: ClusterID, auth: dict | None) -
         )
     except requests.exceptions.HTTPError as e:
         L.error("Failed to allocate head node: %s", e)
-        raise RuntimeError(f"Failed to allocate head node: {e}") from e
+        raise RuntimeError(f"Failed to request head node: {e}") from e
 
     return response
 

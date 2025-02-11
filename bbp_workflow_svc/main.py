@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse, urlunparse
-from entity_management.core import DataDownload, WorkflowExecution
 
 import luigi.server
 import sh

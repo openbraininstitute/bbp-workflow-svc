@@ -30,7 +30,7 @@ push_latest: build_latest
 	docker logout $(REGISTRY)
 
 local_server:
-	docker run -it --rm -p 8100:8100 \
+	docker run --network shared-network --name workflow-svc -it --rm -p 8100:8100 \
 		-e DEBUG=True \
 		-e USER=$$(whoami) \
 		-e REDIRECT_URI=$$REDIRECT_URI \
@@ -38,17 +38,16 @@ local_server:
 		-e KC_REALM=$$KC_REALM \
 		-e KC_SCR=$$KC_SCR \
 		-e KC_SUB=$$KC_SUB \
+		-e DB_API_URL=$$DB_API_URL \
 		-e HPC_HEAD_NODE=$$HPC_HEAD_NODE \
 		-e HPC_ENVIRONMENT=$$HPC_ENVIRONMENT \
 		-e HPC_PATH_PREFIX=$$HPC_PATH_PREFIX \
 		-e HPC_DATA_PREFIX=$$HPC_DATA_PREFIX \
 		-e HPC_SIF_PREFIX=$$HPC_SIF_PREFIX \
-		-e NEXUS_BASE=$$NEXUS_BASE \
-		-e SESSION_ID=$$SESSION_ID \
 		-e HPC_RESOURCE_PROVISIONER_API_URL=$$HPC_RESOURCE_PROVISIONER_API_URL \
 		-e AWS_ACCESS_KEY_ID=$$AWS_ACCESS_KEY_ID \
                 -e AWS_SECRET_ACCESS_KEY=$$AWS_SECRET_ACCESS_KEY \
 		-e AWS_DEFAULT_REGION=$$AWS_DEFAULT_REGION \
-		-e VIRTUAL_LAB=$$VIRTUAL_LAB \
-		-e "PROJECT"=$$PROJECT \
+		-e VIRTUAL_LAB_ID=$$VIRTUAL_LAB_ID \
+		-e "PROJECT_ID"=$$PROJECT_ID \
 		$(IMAGE_NAME):$(TAG) --platform=linux/amd64

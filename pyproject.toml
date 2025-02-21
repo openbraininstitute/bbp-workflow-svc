@@ -16,7 +16,6 @@ authors = [
 ]
 keywords = [
   "computational neuroscience",
-  "BlueBrainProject",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -45,10 +44,6 @@ Documentation = "https://github.com/BlueBrain/bbp-workflow-svc"
 Repository = "https://github.com/BlueBrain/bbp-workflow-svc"
 Issues = "https://github.com/BlueBrain/bbp-workflow-svc/issues"
 
-[tool.setuptools.packages.find]
-include = ["bbp_workflow_svc"]
-namespaces = false
-
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
 
@@ -58,7 +53,7 @@ target-version = [
     'py311',
     'py312',
 ]
-include = 'bbp_workflow_svc\/.*\.py$|tests\/.*\.py$|doc\/source\/conf\.py$|setup\.py$'
+include = 'bbp_workflow_svc\/.*\.py$|tests\/.*\.py$|doc\/source\/conf\.py$'
 
 [tool.isort]
 profile = "black"

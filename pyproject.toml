@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bbp-workflow-svc"
+name = "workflow-svc"
 description = "Workflow launcher service"
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.11"
@@ -44,6 +44,9 @@ Documentation = "https://github.com/BlueBrain/bbp-workflow-svc"
 Repository = "https://github.com/BlueBrain/bbp-workflow-svc"
 Issues = "https://github.com/BlueBrain/bbp-workflow-svc/issues"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
 
@@ -53,7 +56,7 @@ target-version = [
     'py311',
     'py312',
 ]
-include = 'bbp_workflow_svc\/.*\.py$|tests\/.*\.py$|doc\/source\/conf\.py$'
+include = 'src\/.*\.py$|tests\/.*\.py$|doc\/source\/conf\.py$'
 
 [tool.isort]
 profile = "black"

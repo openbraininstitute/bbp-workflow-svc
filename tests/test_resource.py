@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from bbp_workflow_svc import exception
-from bbp_workflow_svc import resource as test_module
-from bbp_workflow_svc.testing import patchenv
+from app import exception
+from app import resource as test_module
+from app.testing import patchenv
 
 # Test data
 MOCK_CLUSTER_ID = test_module.ClusterID(project="proj30", virtual_lab="vlab2")
@@ -74,7 +74,7 @@ def test_endpoint():
     )
 
 
-@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+@patch("app.resource.make_aws_signed_request")
 def test_request_cluster(mock_make_aws_signed_request, mock_successful_post_response):
     mock_make_aws_signed_request.return_value = mock_successful_post_response
 
@@ -85,7 +85,7 @@ def test_request_cluster(mock_make_aws_signed_request, mock_successful_post_resp
     assert response.json()["cluster"]["private_ssh_key_arn"] == MOCK_SECRET_ARN
 
 
-@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+@patch("app.resource.make_aws_signed_request")
 def test_get_cluster_status(mock_make_aws_signed_request, mock_successful_get_response):
     mock_make_aws_signed_request.return_value = mock_successful_get_response
 
@@ -99,7 +99,7 @@ def test_get_cluster_status(mock_make_aws_signed_request, mock_successful_get_re
     assert response.json()["headNode"]["privateIpAddress"] == MOCK_IP
 
 
-@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+@patch("app.resource.make_aws_signed_request")
 def test_wait_for_cluster_ready_success(mock_make_aws_signed_request, mock_successful_get_response):
     mock_make_aws_signed_request.return_value = mock_successful_get_response
 
@@ -114,7 +114,7 @@ def test_wait_for_cluster_ready_success(mock_make_aws_signed_request, mock_succe
     mock_make_aws_signed_request.assert_called()
 
 
-@patch("bbp_workflow_svc.resource.make_aws_signed_request")
+@patch("app.resource.make_aws_signed_request")
 def test_wait_for_cluster_ready_failure(mock_make_aws_signed_request):
     mock_response = Mock()
     mock_response.json.return_value = {"clusterStatus": "CREATE_FAILED"}
@@ -131,7 +131,7 @@ def test_wait_for_cluster_ready_failure(mock_make_aws_signed_request):
     mock_make_aws_signed_request.assert_called()
 
 
-@patch("bbp_workflow_svc.resource.get_cluster_status")
+@patch("app.resource.get_cluster_status")
 def test_wait_for_cluster_ready_timeout(mock_get_cluster_status):
     mock_get_cluster_status.return_value = MockResponse({"clusterStatus": "CREATE_IN_PROGRESS"})
 
@@ -181,9 +181,9 @@ def test_fetch_response_entry_missing_key():
         test_module._fetch_response_entry(response, "cluster.private_ssh_key_arn")
 
 
-@patch("bbp_workflow_svc.resource.request_cluster")
-@patch("bbp_workflow_svc.resource.get_secret")
-@patch("bbp_workflow_svc.resource.wait_for_cluster_ready")
+@patch("app.resource.request_cluster")
+@patch("app.resource.get_secret")
+@patch("app.resource.wait_for_cluster_ready")
 def test_request_cluster_and_wait(
     mock_wait_for_cluster_ready, mock_get_secret, mock_request_cluster
 ):

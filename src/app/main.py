@@ -21,13 +21,13 @@ import tornado.web
 from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
-from bbp_workflow_svc import __version__ as VERSION
-from bbp_workflow_svc import db_api, environment, resource
-from bbp_workflow_svc.auth import KEYCLOAK, KeycloakAuthHandler
-from bbp_workflow_svc.common import ProjectContext
-from bbp_workflow_svc.environment import PROJECT_ID, VIRTUAL_LAB_ID
-from bbp_workflow_svc.exception import ClusterError
-from bbp_workflow_svc.settings import DEBUG, L
+from app import __version__ as VERSION
+from app import db_api, environment, resource
+from app.auth import KEYCLOAK, KeycloakAuthHandler
+from app.common import ProjectContext
+from app.environment import PROJECT_ID, VIRTUAL_LAB_ID
+from app.exception import ClusterError
+from app.settings import DEBUG, L
 
 WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
 

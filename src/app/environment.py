@@ -4,7 +4,7 @@ This module handles environment-specific configuration and provides
 functions to access environment variables required by the service.
 """
 
-from bbp_workflow_svc.util import get_env
+from app.util import get_env
 
 # The virtual lab project id
 PROJECT_ID = get_env(name="PROJECT_ID", required=True)

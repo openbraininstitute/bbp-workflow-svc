@@ -23,4 +23,4 @@ ENV HOME=/home/bbp-workflow
 COPY dist/* dist/
 RUN pip install --no-cache-dir $(ls -t $PWD/dist/*.* | head -n 1)
 
-ENTRYPOINT ["python", "-m", "bbp_workflow_svc.main"]
+ENTRYPOINT ["python", "-m", "app.main"]

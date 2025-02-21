@@ -14,5 +14,5 @@ if LOGGING_CFG.exists():
 logging.getLogger("entity_management").setLevel(
     logging.DEBUG if os.getenv("DEBUG_KG") else logging.INFO
 )
-L = logging.getLogger("bbp_workflow_svc")
+L = logging.getLogger("app")
 L.setLevel(logging.DEBUG if DEBUG else logging.INFO)

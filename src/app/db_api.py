@@ -9,9 +9,9 @@ from typing import ClassVar
 
 from pydantic import BaseModel, TypeAdapter
 
-from bbp_workflow_svc.common import ProjectContext
-from bbp_workflow_svc.environment import DB_API_URL
-from bbp_workflow_svc.util import make_request
+from app.common import ProjectContext
+from app.environment import DB_API_URL
+from app.util import make_request
 
 
 class Asset(BaseModel):

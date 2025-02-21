@@ -5,7 +5,7 @@ import logging
 import boto3
 from requests_aws4auth import AWS4Auth
 
-from bbp_workflow_svc.util import make_request
+from app.util import make_request
 
 L = logging.getLogger(__name__)
 

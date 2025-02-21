@@ -8,8 +8,8 @@ from datetime import datetime
 import boto3
 import requests
 
-from bbp_workflow_svc.aws import get_secret, make_aws_signed_request
-from bbp_workflow_svc.exception import (
+from app.aws import get_secret, make_aws_signed_request
+from app.exception import (
     ClusterFailedToGetStatusError,
     ClusterRequestFailedError,
     ClusterRequestTimeoutError,

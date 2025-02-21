@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from bbp_workflow_svc import util as test_module
-from bbp_workflow_svc.testing import patchenv
+from app import util as test_module
+from app.testing import patchenv
 
 
 @patchenv(TEST_ENV_VAR="test_value")

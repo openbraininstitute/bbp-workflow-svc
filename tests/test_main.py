@@ -2,7 +2,7 @@
 
 import sh
 
-from bbp_workflow_svc.main import _dump_files, _ssh_agt, _zip_files
+from app.main import _dump_files, _ssh_agt, _zip_files
 
 
 def test_post_files_payload_storage(tmp_path):

@@ -110,7 +110,7 @@ def _register_workflow(
         project_context=project_context,
         token=token,
     )
-    return registered.id, registered.url
+    return str(registered.id), registered.url
 
 
 def _register_workflow_provenance(
@@ -346,8 +346,10 @@ def _handle_auth(token):
     _, token_value = token.split(" ")
 
     token_info = jwt.decode(token_value, options={"verify_signature": False})
+    # if access token is used
+    #env["KC_REFRESH_TOKEN"], env["KC_ACCESS_TOKEN"] = _handle_auth(auth_token)
 
-    return None, token_value
+    return {"KC_ACCESS_TOKEN": token_value}
 
     # if token_info["typ"] == "Bearer":
     #    return None, token
@@ -387,8 +389,8 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         # this should be a refresh token
         auth_token = self.request.headers.get("Authorization")
 
-        # if access token is used
-        env["KC_REFRESH_TOKEN"], env["KC_ACCESS_TOKEN"] = _handle_auth(auth_token)
+        env |= _handle_auth(auth_token)
+
 
         timestamp = f"{datetime.now():%Y-%m-%d_%H-%M-%S.%f}"
 

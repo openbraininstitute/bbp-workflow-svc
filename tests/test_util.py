@@ -9,7 +9,6 @@ from app.testing import patchenv
 
 @patchenv(TEST_ENV_VAR="test_value")
 def test_get_env_returns_value():
-
     result = test_module.get_env("TEST_ENV_VAR", required=True)
 
     assert result == "test_value"
@@ -17,25 +16,23 @@ def test_get_env_returns_value():
 
 @patchenv()
 def test_get_env_raises_error_when_not_set():
-
     test_var_name = "FOO"
 
     expected_str = f"Required environment variable '{test_var_name}' is not set."
 
-    with pytest.raises(ValueError, match=expected_str) as exc_info:
+    with pytest.raises(ValueError, match=expected_str):
         test_module.get_env(test_var_name, required=True)
 
     assert not test_module.get_env(test_var_name, required=False)
 
 
 @patchenv(FOO="")
-def test_get_env_raises_error_when_not_set():
-
+def test_get_env_raises_error_when_empty():
     test_var_name = "FOO"
 
     expected_str = f"Required environment variable '{test_var_name}' cannot be empty."
 
-    with pytest.raises(ValueError, match=expected_str) as exc_info:
+    with pytest.raises(ValueError, match=expected_str):
         test_module.get_env(test_var_name, required=True)
 
     assert not test_module.get_env(test_var_name, required=False)

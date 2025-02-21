@@ -84,7 +84,7 @@ class KeycloakAuthHandler(RequestHandler, KeycloakOAuth2Mixin):
                 client_id = token_info["azp"]
                 if client_id != CLIENT_ID:
                     raise ValueError("Invalid client id")
-                assert token_info["typ"] == "Offline"
+                # assert token_info["typ"] == "Offline"
                 set_token(token)
                 if url is not None:
                     self.redirect(url)

@@ -44,8 +44,7 @@ class ClusterID:
 
 @dataclass
 class ClusterLoginInfo:
-    """
-    Response from the HPC resource provisioner API.
+    """Response from the HPC resource provisioner API.
 
     Attributes:
         ssh_key: The private SSH key for the head node.
@@ -60,6 +59,7 @@ def request_cluster_and_wait(*, api_url: str, cluster_id: ClusterID) -> dict:
     """Request a cluster formation and wait until it's ready.
 
     Args:
+        api_url: url for resource provisione api
         cluster_id: The Cluster ID to request.
 
     Raises:
@@ -126,7 +126,8 @@ def request_cluster(*, api_url: str, cluster_id: ClusterID) -> dict:
 
     Returns:
         The response from the HPC resource provisioner API.
-        Example:
+
+    Example:
         {
             "cluster": {
                 "clusterName": "pcluster-smith-proj02",
@@ -215,7 +216,6 @@ def wait_for_cluster_ready(
 
     # and now wait for the cluster to become ready
     while (datetime.now() - start_time).total_seconds() < timeout:
-
         L.info("Handling cluster status: %s", status)
 
         match status:

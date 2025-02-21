@@ -1,11 +1,9 @@
-from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
-import requests
 
 from app import exception
-from app import resource as test_module
+from app import hpc_resource as test_module
 from app.testing import patchenv
 
 # Test data
@@ -187,7 +185,6 @@ def test_fetch_response_entry_missing_key():
 def test_request_cluster_and_wait(
     mock_wait_for_cluster_ready, mock_get_secret, mock_request_cluster
 ):
-
     mock_request_cluster.return_value = MockResponse(
         {"cluster": {"private_ssh_key_arn": "arn:aws:secretsmanager:123"}}
     )

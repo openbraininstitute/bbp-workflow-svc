@@ -14,15 +14,16 @@ from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse, urlunparse
 
-import jwt
 import luigi.server
 import sh
 import tornado.web
+from entitysdk.client import FileToUpload, register_entity, update_entity
+from entitysdk.models.workflow import WorkflowExecution
 from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
 from app import __version__ as VERSION
-from app import db_api, environment, resource
+from app import environment, hpc_resource
 from app.auth import KEYCLOAK, KeycloakAuthHandler
 from app.common import ProjectContext
 from app.environment import PROJECT_ID, VIRTUAL_LAB_ID
@@ -89,12 +90,12 @@ def _register_workflow(
     # token = KEYCLOAK.refresh_token(env["KC_REFRESH_TOKEN"])["access_token"]
 
     buffer_or_path.seek(0)
-    file_to_upload = db_api.FileToUpload(
+    file_to_upload = FileToUpload(
         filename=zip_name,
         content_type="application/zip",
         buffer_or_path=buffer_or_path,
     )
-    entity = db_api.WorkflowExecution(
+    entity = WorkflowExecution(
         name=f"{module}.{task}",
         description=f"{module}.{task}",
         module=module,
@@ -104,7 +105,7 @@ def _register_workflow(
         status="Running",
         startedAtTime=datetime.utcnow(),
     )
-    registered = db_api.register_entity(
+    registered = register_entity(
         entity=entity,
         files_to_upload=[file_to_upload],
         project_context=project_context,
@@ -151,9 +152,9 @@ def _update_workflow_status(*, workflow_id, env, status):
         else:
             token = env["KC_ACCESS_TOKEN"]
 
-        workflow = db_api.update_entity(
-            resource_id=workflow_id,
-            model=db_api.WorkflowExecution,
+        workflow = update_entity(
+            hpc_resource_id=workflow_id,
+            model=WorkflowExecution,
             attributes_to_update={
                 "status": status,
                 "endedAtTime": datetime.utcnow(),
@@ -170,17 +171,16 @@ def _update_workflow_status(*, workflow_id, env, status):
 
 
 def _run_worker(cmd_params, env):
-
     workflow_id = env.get("NEXUS_WORKFLOW", None)
 
-    api_url = environment.get_hpc_resource_provisioner_api_url()
+    api_url = environment.get_hpc_hpc_resource_provisioner_api_url()
 
     L.info("Provisioner API URL: %s", api_url)
 
     try:
-        cluster_login_info = resource.request_cluster_and_wait(
+        cluster_login_info = hpc_resource.request_cluster_and_wait(
             api_url=api_url,
-            cluster_id=resource.ClusterID(
+            cluster_id=hpc_resource.ClusterID(
                 project=env["PROJECT_ID"],
                 virtual_lab=env["VIRTUAL_LAB_ID"],
             ),
@@ -337,27 +337,18 @@ def _ssh_agt(key):
     finally:
         if ssh_agent_proc.is_alive():
             ssh_agent_proc.terminate()
-        for line in ssh_agent_proc:  # drain output
+        for _ in ssh_agent_proc:  # drain output
             pass
 
 
 def _handle_auth(token):
-
     _, token_value = token.split(" ")
 
-    token_info = jwt.decode(token_value, options={"verify_signature": False})
+    # token_info = jwt.decode(token_value, options={"verify_signature": False})
     # if access token is used
-    #env["KC_REFRESH_TOKEN"], env["KC_ACCESS_TOKEN"] = _handle_auth(auth_token)
+    # env["KC_REFRESH_TOKEN"], env["KC_ACCESS_TOKEN"] = _handle_auth(auth_token)
 
     return {"KC_ACCESS_TOKEN": token_value}
-
-    # if token_info["typ"] == "Bearer":
-    #    return None, token
-
-    # if token_info["typ"] in ["Refresh"]:
-    #    return token, None
-
-    raise TypeError("Unknown token type token_info['typ']")
 
 
 class ApiLaunchHandler(tornado.web.RequestHandler):
@@ -390,7 +381,6 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         auth_token = self.request.headers.get("Authorization")
 
         env |= _handle_auth(auth_token)
-
 
         timestamp = f"{datetime.now():%Y-%m-%d_%H-%M-%S.%f}"
 

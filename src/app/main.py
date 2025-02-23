@@ -17,25 +17,18 @@ from urllib.parse import urlparse, urlunparse
 import luigi.server
 import sh
 import tornado.web
-from entitysdk.client import FileToUpload, register_entity, update_entity
-from entitysdk.models.workflow import WorkflowExecution
+
+# from entitysdk.models.workflow import WorkflowExecution
 from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
 from app import __version__ as VERSION
-from app import environment, hpc_resource
-from app.auth import KEYCLOAK, KeycloakAuthHandler
+from app import hpc_resource
+from app.auth import KeycloakAuthHandler
 from app.common import ProjectContext
-from app.environment import PROJECT_ID, VIRTUAL_LAB_ID
+from app.config import settings
 from app.exception import ClusterError
-from app.settings import DEBUG, L
-
-WORKFLOWS_PATH = Path(os.getenv("WORKFLOWS_PATH", "."))
-
-LUIGI_CFG_PATH = Path("/home/bbp-workflow/luigi.cfg")
-LOGGING_CFG_PATH = Path("/home/bbp-workflow/logging.cfg")
-
-IDLE_TIMEOUT = 100 * 5 * 60  # seconds
+from app.logger import L
 
 
 def _zip_files(files, cfg_name):
@@ -84,12 +77,13 @@ def _register_workflow(
 ):
     # pylint: disable=too-many-positional-arguments):
     """Register workflow execution in nexus."""
-    zip_name = f"{timestamp}.zip"
+    # zip_name = f"{timestamp}.zip"
 
-    token = env["KC_ACCESS_TOKEN"]
+    # token = env["KC_ACCESS_TOKEN"]
     # token = KEYCLOAK.refresh_token(env["KC_REFRESH_TOKEN"])["access_token"]
 
-    buffer_or_path.seek(0)
+    # buffer_or_path.seek(0)
+    """
     file_to_upload = FileToUpload(
         filename=zip_name,
         content_type="application/zip",
@@ -111,7 +105,9 @@ def _register_workflow(
         project_context=project_context,
         token=token,
     )
-    return str(registered.id), registered.url
+    """
+    # return str(registered.id), registered.url
+    return ("0", "foo")
 
 
 def _register_workflow_provenance(
@@ -147,6 +143,7 @@ def _register_workflow_provenance(
 
 def _update_workflow_status(*, workflow_id, env, status):
     if workflow_id:
+        """
         if "KC_REFRESH_TOKEN" in env and env["KC_REFRESH_TOKEN"]:
             token = KEYCLOAK.refresh_token(env["KC_REFRESH_TOKEN"])["access_token"]
         else:
@@ -165,7 +162,9 @@ def _update_workflow_status(*, workflow_id, env, status):
             ),
             token=token,
         )
-        L.info("Workflow %s is updated with status %s", workflow.id, status)
+        """
+        workflow_id = None
+        L.info("Workflow %s is updated with status %s", workflow_id, status)
     else:
         L.info("No workflow id to update. Workflow status: %s", status)
 
@@ -173,13 +172,9 @@ def _update_workflow_status(*, workflow_id, env, status):
 def _run_worker(cmd_params, env):
     workflow_id = env.get("NEXUS_WORKFLOW", None)
 
-    api_url = environment.get_hpc_hpc_resource_provisioner_api_url()
-
-    L.info("Provisioner API URL: %s", api_url)
-
     try:
         cluster_login_info = hpc_resource.request_cluster_and_wait(
-            api_url=api_url,
+            api_url=settings.hpc_resource_provisioner_api_url,
             cluster_id=hpc_resource.ClusterID(
                 project=env["PROJECT_ID"],
                 virtual_lab=env["VIRTUAL_LAB_ID"],
@@ -222,7 +217,7 @@ def _launch(*, buf, env, timestamp, module_name, task_name, project_context, cfg
     if workflow_id:
         env["NEXUS_WORKFLOW"] = workflow_id
 
-    workflows_path = WORKFLOWS_PATH / timestamp
+    workflows_path = settings.workflows_path / timestamp
 
     _dump_files(buf, workflows_path)
     env["PYTHONPATH"] = str(workflows_path)
@@ -233,7 +228,7 @@ def _launch(*, buf, env, timestamp, module_name, task_name, project_context, cfg
 
     cmd_params = [
         "--logging-conf-file",
-        LOGGING_CFG_PATH,
+        settings.logging_cfg_path,
         "--module",
         module_name,
         task_name,
@@ -276,8 +271,8 @@ class TagsHandler(tornado.web.RequestHandler):
         """Get."""
         self.write(
             {
-                "virtual_lab": VIRTUAL_LAB_ID,
-                "project": PROJECT_ID,
+                "virtual_lab": settings.VIRTUAL_LAB_ID,
+                "project": settings.PROJECT_ID,
             }
         )
 
@@ -364,7 +359,7 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         L.info("API launch: %s", task)
 
         env = {}
-        if DEBUG:
+        if settings.debug:
             env |= {"DEBUG": "True"}
 
         if auth_token := self.request.headers.get("Authorization"):
@@ -397,12 +392,12 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
             virtual_lab_id=virtual_lab_id,
         )
 
-        if project_id != PROJECT_ID or virtual_lab_id != VIRTUAL_LAB_ID:
+        if project_id != settings.project_id or virtual_lab_id != settings.virtual_lab_id:
             raise RuntimeError(
                 f"Project or virtual lab received from the request does not match the instance's "
                 f"project or virtual lab. "
                 f"project: {project_id}, virtual_lab: {virtual_lab_id}\n"
-                f"PROJECT: {PROJECT_ID}, VIRTUAL_LAB: {VIRTUAL_LAB_ID}"
+                f"PROJECT: {settings.PROJECT_ID}, VIRTUAL_LAB: {settings.VIRTUAL_LAB_ID}"
             )
 
         env["PROJECT_ID"] = project_id
@@ -435,7 +430,7 @@ async def idle_culling(call_later_fn):
         L.info("Worker list: %s", worker_list)
         if not worker_list:
             luigi.server.stop()
-        call_later_fn(IDLE_TIMEOUT, idle_culling, call_later_fn)
+        call_later_fn(settings.idle_timeout, idle_culling, call_later_fn)
     except Exception:  # pylint: disable=broad-except
         luigi.server.stop()
 
@@ -456,7 +451,7 @@ def main():
     app.listen(8100)
 
     call_later_fn = tornado.ioloop.IOLoop.current().call_later
-    call_later_fn(IDLE_TIMEOUT, idle_culling, call_later_fn)
+    call_later_fn(settings.idle_timeout, idle_culling, call_later_fn)
 
     luigi.server.run(address="127.0.0.1")
 

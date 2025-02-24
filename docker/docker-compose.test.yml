@@ -1,0 +1,14 @@
+services:
+  test:
+    profiles: [test]
+    image: "${IMAGE_NAME}:${IMAGE_TAG}"
+    command:
+    - sh
+    - -cx
+    - python -m pytest
+    env_file: .env.test-docker
+    volumes:
+    - ./tests:/code/tests
+    depends_on:
+      db-test:
+        condition: service_healthy

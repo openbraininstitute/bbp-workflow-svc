@@ -258,4 +258,4 @@ def _endpoint(*, api_url: str, cluster_id: ClusterID) -> str:
     proj_id, vlab_id = cluster_id.project, cluster_id.virtual_lab
     short_vlab_id = vlab_id.split("-")[0]
     short_proj_id = proj_id.split("-")[0]
-    return f"{api_url}/pcluster?project_id={short_proj_id}&vlab_id={short_vlab_id}&dev=True"
+    return f"{api_url}/pcluster?project_id={short_proj_id}&vlab_id={short_vlab_id}"

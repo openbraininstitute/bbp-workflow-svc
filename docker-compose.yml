@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      dockerfile: docker/Dockerfile.app
+    env_file: .env.app
+    ports:
+      - "8100:8100"
+    depends_on:
+      - auth
+
+  auth:
+    build:
+      dockerfile: docker/Dockerfile.auth
+    env_file: .env.auth
+    ports:
+      - "8200:8200"

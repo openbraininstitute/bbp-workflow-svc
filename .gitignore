@@ -10,3 +10,4 @@ doc/source/generated
 .tox
 .DS_Store
 .env*
+.venv

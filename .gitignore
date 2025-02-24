@@ -8,3 +8,5 @@ dist/
 doc/build
 doc/source/generated
 .tox
+.DS_Store
+.env*

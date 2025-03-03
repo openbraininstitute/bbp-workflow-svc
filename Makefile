@@ -39,8 +39,6 @@ run-docker: build  ## Run the application in Docker
 
 test-local:  ## Run tests locally
 	@$(call load_env,test-local)
-	docker compose up --wait db-test
-	uv run -m alembic upgrade head
 	uv run -m pytest
 	uv run -m coverage xml
 	uv run -m coverage html

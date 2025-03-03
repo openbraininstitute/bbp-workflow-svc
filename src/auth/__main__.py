@@ -26,7 +26,10 @@ def main():
         _read_config_file(Path("/code/logging.yml")),
     )
 
-    uvicorn.run("auth.api:app", host=args.host, port=args.port, reload=args.reload)
+    # Use 1 worker for now because we have a global storage in-memory that needs to be shared
+    # by all threads. Different processes will have their own copy of the storage.
+    # TODO: Use a database to avoid such issues
+    uvicorn.run("auth.api:app", host=args.host, port=args.port, reload=args.reload, workers=1)
 
 
 if __name__ == "__main__":

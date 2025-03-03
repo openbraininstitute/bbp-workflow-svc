@@ -1,12 +1,20 @@
 """Configuration for the workflow service."""
 
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.auth import AuthClient
 from app.common import ProjectContext
+
+
+def _path_exists(path: Path) -> Path:
+    """Check if a path exists."""
+    if not path.exists():
+        raise ValueError(f"The path {path} does not exist.")
+    return path
 
 
 class Settings(BaseSettings):
@@ -55,13 +63,13 @@ class Settings(BaseSettings):
         env="WORKFLOWS_PATH",
         description="The path to the workflows directory within the container.",
     )
-    luigi_cfg_path: Path = Field(
-        default=Path("/code/workflow/luigi.cfg"),
+    luigi_cfg_path: Annotated[Path, _path_exists] = Field(
+        default=Path("/etc/luigi/luigi.cfg"),
         env="LUIGI_CFG_PATH",
         description="The path to the Luigi configuration file within the container.",
     )
-    logging_cfg_path: Path = Field(
-        default=Path("/code/workflow/logging.cfg"),
+    logging_cfg_path: Annotated[Path, _path_exists] = Field(
+        default=Path("/code/logging.cfg"),
         env="LOGGING_CFG_PATH",
         description="The path to the logging configuration file within the container.",
     )

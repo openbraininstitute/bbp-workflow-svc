@@ -6,6 +6,7 @@ from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from fastapi.security import HTTPBearer
 
 from auth import service
+from auth.logger import L
 from auth.models import (
     ProjectContext,
     StoreRefreshTokenBody,
@@ -25,6 +26,7 @@ TOKEN_STORAGE = TokenStorage()
 def _extract_token(authorization: str = Header(...)) -> str:
     """Return the access token from the Authorization header."""
     if not authorization.startswith("Bearer "):
+        L.error("Invalid Authorization header format")
         raise HTTPException(
             status_code=400,
             detail="Invalid Authorization header format. Expected 'Bearer <token>'.",
@@ -38,12 +40,13 @@ def _extract_project_context(
 ) -> ProjectContext:
     """Returb the project context from the header if any."""
     if virtual_lab_id is None and project_id is None:
+        L.warning("No project context provided.")
         return None
     return ProjectContext(virtual_lab_id=virtual_lab_id, project_id=project_id)
 
 
 @app.post("/store-refresh-token")
-async def store_refresh_token(
+def store_refresh_token(
     body: Annotated[StoreRefreshTokenBody, Body()],
     access_token: Annotated[str, Depends(_extract_token)],
     project_context: Annotated[ProjectContext | None, Depends(_extract_project_context)],
@@ -65,11 +68,12 @@ async def store_refresh_token(
     )
     # store the pair in the storage using the initial access token as key.
     TOKEN_STORAGE.add_token_pair(token_pair)
+    L.info("Tokens stored successfully for subject %s", token_info.subject_id)
     return {"message": "Tokens stored successfully"}
 
 
-@app.post("/refresh-token")
-async def refresh_token(
+@app.get("/refresh-token")
+def refresh_token(
     storage_key: Annotated[str, Depends(_extract_token)],
     project_context: Annotated[ProjectContext | None, Depends(_extract_project_context)],
 ) -> TokenResponse:
@@ -82,14 +86,14 @@ async def refresh_token(
     new_token_pair = service.refresh_token_pair(token_pair)
 
     TOKEN_STORAGE.update_token_pair(storage_key, new_token_pair)
-
+    L.info("Tokens refreshed successfully for subject %s", token_pair.subject_id)
     return TokenResponse(
         access_token=new_token_pair.access_token,
     )
 
 
 @app.get("/validate-token")
-async def validate_token(
+def validate_token(
     access_token: Annotated[str, Depends(_extract_token)],
     project_context: Annotated[ProjectContext | None, Depends(_extract_project_context)],
 ) -> TokenInfo:
@@ -104,9 +108,3 @@ async def validate_token(
         token=access_token,
         project_context=project_context,
     )
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="127.0.0.1", port=9000)

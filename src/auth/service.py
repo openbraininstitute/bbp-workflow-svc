@@ -52,7 +52,7 @@ def get_user_info(token: str) -> UserInfo:
         groups=info.get("groups", []),
     )
 
-    L.info("Successfully retrieved user info for subject %s", user_info.sunbject_id)
+    L.info("Successfully retrieved user info for subject %s", user_info.subject_id)
     return user_info
 
 

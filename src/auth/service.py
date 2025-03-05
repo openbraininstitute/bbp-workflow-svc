@@ -51,7 +51,7 @@ def get_user_info(token: str) -> UserInfo:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=message,
-        ) from e
+        )
 
     user_info = UserInfo(
         subject_id=info["sub"],
@@ -97,8 +97,8 @@ def _validate_user_groups(user_info, project_context: ProjectContext | None) -> 
 
 def _context_in_groups(context: ProjectContext, groups: list[str]) -> bool:
     """Check if the context is in the groups."""
-    proj_ids = {g.split("/")[2] for g in groups if g.startswith(("/proj"))}
-    vlab_ids = {g.split("/")[2] for g in groups if g.startswith(("/vlab"))}
+    proj_ids = {g.split("/")[2] for g in groups if g.startswith("/proj")}
+    vlab_ids = {g.split("/")[2] for g in groups if g.startswith("/vlab")}
     return str(context.virtual_lab_id) in vlab_ids and str(context.project_id) in proj_ids
 
 

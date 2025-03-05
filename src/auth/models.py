@@ -44,6 +44,7 @@ class UserInfo(AuthModel):
 class TokenInfo(AuthModel):
     """Token information."""
 
+    token: str
     expires_at: int | None
     subject_id: str
 

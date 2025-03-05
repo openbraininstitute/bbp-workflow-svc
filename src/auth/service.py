@@ -33,6 +33,7 @@ def get_token_info(token: str) -> TokenInfo:
     """Get the token info."""
     info: dict = keycloak_openid.decode_token(token, validate=False)
     return TokenInfo(
+        token=token,
         expires_at=info.get("exp", None),
         subject_id=info["sub"],
     )
@@ -45,7 +46,12 @@ def get_user_info(token: str) -> UserInfo:
     # userinfo returns an html page in bytes when authentication fails
     # TODO: Consider using the endpoint directly instead of userinfo method
     if isinstance(info, bytes):
-        raise KeycloakAuthenticationError("Access token is not valid.")
+        message = "Failed to validate user credentials."
+        L.error(message)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=message,
+        ) from e
 
     user_info = UserInfo(
         subject_id=info["sub"],
@@ -59,39 +65,41 @@ def get_user_info(token: str) -> UserInfo:
 def validate_access_token(token: str, project_context: ProjectContext | None = None) -> TokenInfo:
     """Validate the access token."""
     token_info = get_token_info(token)
-    if token_info.expires_at < get_timestamp_now():
-        message = "Access token is expired."
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=message)
-    try:
-        user_info = get_user_info(token)
-    except KeycloakAuthenticationError as e:
-        message = "Failed to validate user credentials."
-        L.error(message)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=message,
-        ) from e
-    if project_context and not _context_in_groups(project_context, user_info.groups):
-        message = (
-            "Access token groups are not consistent with the project context.\n"
-            f"Project Context: {project_context}\n"
-            f"Subject ID: {user_info.subject_id}"
-        )
-        L.error(message)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=message,
-        )
+    _validate_token_expiration_date(token_info)
+
+    user_info = get_user_info(token)
+    _validate_user_groups(user_info, project_context)
+
     L.info("Token validated successfully for subject %s", user_info.subject_id)
     return token_info
 
 
+def _validate_token_expiration_date(token_info):
+    """Validate that toke has not been expired."""
+    now = get_timestamp_now()
+    if token_info.expires_at < now:
+        message = f"Access token has expired.\nExpiration date: {token_info.expires_at}\nNow: {now}"
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=message)
+
+
+def _validate_user_groups(user_info, project_context: ProjectContext | None) -> None:
+    """Validate that project context vlab/proj is in user groups."""
+    if project_context and not _context_in_groups(project_context, user_info.groups):
+        message = (
+            "Access token groups are not consistent with the project context.\n"
+            f"Project Context: {project_context}\n"
+            f"Subject ID     : {user_info.subject_id}\n"
+            f"User groups    : {user_info.groups}"
+        )
+        L.error(message)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=message)
+
+
 def _context_in_groups(context: ProjectContext, groups: list[str]) -> bool:
     """Check if the context is in the groups."""
-    L.warning("Group validation is disabled for now.")
-    return True
-    # group_ids = {g.split("/")[2] for g in groups if g.startswith(("/proj", "/vlab"))}
-    # return context.virtual_lab_id in group_ids and context.project_id in group_ids
+    proj_ids = {g.split("/")[2] for g in groups if g.startswith(("/proj"))}
+    vlab_ids = {g.split("/")[2] for g in groups if g.startswith(("/vlab"))}
+    return str(context.virtual_lab_id) in vlab_ids and str(context.project_id) in proj_ids
 
 
 def validate_token_pair(

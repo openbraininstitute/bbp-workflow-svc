@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from auth.main import app
+from auth.api import app
 
 
 @pytest.fixture
@@ -18,11 +18,11 @@ def test_store_refresh_token(
     auth_client,
     mock_access_token,
     mock_refresh_token,
-    mock_user_info_valid,
+    mock_userinfo_response_valid,
 ):
     """Test the store tokens endpoint."""
 
-    mock_userinfo.return_value = mock_user_info_valid
+    mock_userinfo.return_value = mock_userinfo_response_valid
 
     response = auth_client.post(
         "/store-refresh-token",
@@ -40,10 +40,10 @@ def test_refresh_token(
     auth_client,
     mock_access_token,
     mock_refresh_token,
-    mock_user_info_valid,
+    mock_userinfo_response_valid,
 ):
     """Test the refresh token endpoint."""
-    mock_userinfo.return_value = mock_user_info_valid
+    mock_userinfo.return_value = mock_userinfo_response_valid
     mock_refreshtoken.return_value = {
         "access_token": mock_access_token,
         "refresh_token": mock_refresh_token,
@@ -59,18 +59,17 @@ def test_refresh_token(
 
     assert response.status_code == 200, response.text
 
-    response = auth_client.post(
+    response = auth_client.get(
         "/refresh-token",
         headers={"Authorization": f"Bearer {mock_access_token}"},
-        json={"refresh-token": mock_refresh_token},
     )
     assert response.status_code == 200
 
 
 @patch("auth.service.keycloak_openid.userinfo")
-def test_validate_token(mock_userinfo, auth_client, mock_access_token, mock_user_info_valid):
+def test_validate_token(mock_userinfo, auth_client, mock_access_token, mock_userinfo_response_valid):
     """Test the validate token endpoint."""
-    mock_userinfo.return_value = mock_user_info_valid
+    mock_userinfo.return_value = mock_userinfo_response_valid
 
     response = auth_client.get(
         "/validate-token",

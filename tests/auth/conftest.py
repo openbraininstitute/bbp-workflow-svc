@@ -1,7 +1,8 @@
 import jwt
 import pytest
+from uuid import UUID
 
-from auth.models import ProjectContext, TokenPairInput
+from auth.models import ProjectContext, TokenPairInput, UserInfo
 from auth.util import get_timestamp_now
 
 MOCK_VIRTUAL_LAB_ID = "ea3273ac-684f-4828-a651-ba17c9d6c41d"
@@ -11,12 +12,12 @@ MOCK_SUBJECT_ID = "098ed78a-655a-4108-ac66-144a01e444a1"
 
 @pytest.fixture(scope="session")
 def mock_virtual_lab_id():
-    return MOCK_VIRTUAL_LAB_ID
+    return UUID(MOCK_VIRTUAL_LAB_ID)
 
 
 @pytest.fixture(scope="session")
 def mock_project_id():
-    return MOCK_PROJECT_ID
+    return UUID(MOCK_PROJECT_ID)
 
 
 @pytest.fixture(scope="session")
@@ -132,7 +133,25 @@ def mock_user_groups_valid(mock_virtual_lab_id, mock_project_id):
 
 
 @pytest.fixture(scope="session")
-def mock_user_info_valid(mock_subject_id, mock_user_groups_valid):
+def mock_user_groups_invalid_project(mock_virtual_lab_id):
+    return [
+        "BBP-USERS",
+        f"/vlab/{mock_virtual_lab_id}/admin",
+        f"/proj/wrong-proj-id/admin",
+    ]
+
+
+@pytest.fixture(scope="session")
+def mock_user_groups_invalid_vlab(mock_project_id):
+    return [
+        "BBP-USERS",
+        f"/vlab/wrong-vlab-id/admin",
+        f"/proj/{mock_project_id}/admin",
+    ]
+
+
+@pytest.fixture(scope="session")
+def mock_userinfo_response_valid(mock_subject_id, mock_user_groups_valid):
     return {
         "email": "john.smith@openbraininstitute.org",
         "email_verified": False,
@@ -146,7 +165,31 @@ def mock_user_info_valid(mock_subject_id, mock_user_groups_valid):
 
 
 @pytest.fixture(scope="session")
-def mock_user_info_no_groups(mock_subject_id):
+def mock_user_info_valid(mock_subject_id, mock_user_groups_valid):
+    return UserInfo(
+        subject_id=mock_subject_id,
+        groups=mock_user_groups_valid,
+    )
+
+
+@pytest.fixture(scope="session")
+def mock_user_info_invalid_project_group(mock_subject_id, mock_user_groups_invalid_project):
+    return UserInfo(
+        subject_id=mock_subject_id,
+        groups=mock_user_groups_invalid_project,
+    )
+
+
+@pytest.fixture(scope="session")
+def mock_user_info_invalid_vlab_group(mock_subject_id, mock_user_groups_invalid_vlab):
+    return UserInfo(
+        subject_id=mock_subject_id,
+        groups=mock_user_groups_invalid_vlab,
+    )
+
+
+@pytest.fixture(scope="session")
+def mock_userinfo_response_no_groups(mock_subject_id):
     return {
         "email": "john.smith@openbraininstitute.org",
         "email_verified": False,
@@ -156,3 +199,11 @@ def mock_user_info_no_groups(mock_subject_id):
         "preferred_username": "ez_test_account",
         "sub": mock_subject_id,
     }
+
+
+@pytest.fixture(scope="session")
+def mock_user_info_no_groups(mock_subject_id):
+    return UserInfo(
+        subject_id=mock_subject_id,
+        groups=[],
+    )

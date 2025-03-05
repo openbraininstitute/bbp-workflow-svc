@@ -55,6 +55,7 @@ addopts = [
     "--durations=10",
     "--durations-min=1.0",
 ]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100

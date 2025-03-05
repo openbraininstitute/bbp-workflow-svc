@@ -9,5 +9,6 @@ doc/build
 doc/source/generated
 .tox
 .DS_Store
-.env*
+.env.app
+.env.auth
 .venv

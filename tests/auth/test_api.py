@@ -67,7 +67,9 @@ def test_refresh_token(
 
 
 @patch("auth.service.keycloak_openid.userinfo")
-def test_validate_token(mock_userinfo, auth_client, mock_access_token, mock_userinfo_response_valid):
+def test_validate_token(
+    mock_userinfo, auth_client, mock_access_token, mock_userinfo_response_valid
+):
     """Test the validate token endpoint."""
     mock_userinfo.return_value = mock_userinfo_response_valid
 

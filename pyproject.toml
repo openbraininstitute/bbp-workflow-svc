@@ -18,7 +18,7 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  #"entitysdk",
+  "entitysdk",
   "bbp-workflow",
   "boto3",
   "sh",
@@ -143,6 +143,7 @@ fail_under = 50
 show_error_codes = true
 ignore_missing_imports = true
 allow_redefinition = true
+explicit_packages_bases = true
 
 [tool.uv]
 dev-dependencies = [

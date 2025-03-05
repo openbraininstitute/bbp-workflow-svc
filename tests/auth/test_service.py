@@ -2,7 +2,6 @@ from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
-from keycloak.exceptions import KeycloakAuthenticationError
 
 from auth import service as test_module
 from auth.models import ProjectContext, TokenPairInput
@@ -55,7 +54,9 @@ def test_validate_user_groups__wout_project_context__pass(mock_user_info_valid):
     test_module._validate_user_groups(mock_user_info_valid, None)
 
 
-def test_validate_user_groups__with_project_context__pass(mock_user_info_valid, mock_project_context):
+def test_validate_user_groups__with_project_context__pass(
+    mock_user_info_valid, mock_project_context
+):
     """Test that groups will be checked if project context is provided."""
     test_module._validate_user_groups(mock_user_info_valid, mock_project_context)
 
@@ -65,7 +66,9 @@ def test_validate_user_groups__with_project_context__fail_no_groups(
     mock_project_context,
 ):
     """Test that if user has no groups and there is a project context, it fails."""
-    with pytest.raises(HTTPException, match="Access token groups are not consistent with the project context"):
+    with pytest.raises(
+        HTTPException, match="Access token groups are not consistent with the project context"
+    ):
         test_module._validate_user_groups(mock_user_info_no_groups, mock_project_context)
 
 
@@ -74,8 +77,12 @@ def test_validate_user_groups__with_project_context__fail_invalid_project_group(
     mock_project_context,
 ):
     """Test that if user has no groups and there is a project context, it fails."""
-    with pytest.raises(HTTPException, match="Access token groups are not consistent with the project context"):
-        test_module._validate_user_groups(mock_user_info_invalid_project_group, mock_project_context)
+    with pytest.raises(
+        HTTPException, match="Access token groups are not consistent with the project context"
+    ):
+        test_module._validate_user_groups(
+            mock_user_info_invalid_project_group, mock_project_context
+        )
 
 
 def test_validate_user_groups__with_project_context__fail_invalid_vlab_group(
@@ -83,7 +90,9 @@ def test_validate_user_groups__with_project_context__fail_invalid_vlab_group(
     mock_project_context,
 ):
     """Test that if user has no groups and there is a project context, it fails."""
-    with pytest.raises(HTTPException, match="Access token groups are not consistent with the project context"):
+    with pytest.raises(
+        HTTPException, match="Access token groups are not consistent with the project context"
+    ):
         test_module._validate_user_groups(mock_user_info_invalid_vlab_group, mock_project_context)
 
 
@@ -139,9 +148,8 @@ def test_validate_access_token(
 
     # user info without groups and mismatching context. It should raise.
     project_context = ProjectContext(
-
         virtual_lab_id="12341234-1234-1234-1234-123412341234",
-        project_id=mock_project_context.project_id
+        project_id=mock_project_context.project_id,
     )
     mock_userinfo.return_value = mock_userinfo_response_valid
     with pytest.raises(HTTPException):

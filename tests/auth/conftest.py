@@ -1,6 +1,7 @@
+from uuid import UUID
+
 import jwt
 import pytest
-from uuid import UUID
 
 from auth.models import ProjectContext, TokenPairInput, UserInfo
 from auth.util import get_timestamp_now
@@ -137,7 +138,7 @@ def mock_user_groups_invalid_project(mock_virtual_lab_id):
     return [
         "BBP-USERS",
         f"/vlab/{mock_virtual_lab_id}/admin",
-        f"/proj/wrong-proj-id/admin",
+        "/proj/wrong-proj-id/admin",
     ]
 
 
@@ -145,7 +146,7 @@ def mock_user_groups_invalid_project(mock_virtual_lab_id):
 def mock_user_groups_invalid_vlab(mock_project_id):
     return [
         "BBP-USERS",
-        f"/vlab/wrong-vlab-id/admin",
+        "/vlab/wrong-vlab-id/admin",
         f"/proj/{mock_project_id}/admin",
     ]
 

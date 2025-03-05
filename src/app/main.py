@@ -17,15 +17,14 @@ from urllib.parse import urlparse, urlunparse
 import luigi.server
 import sh
 import tornado.web
+from entitysdk.models.workflow import WorkflowExecution
 
 # from entitysdk.models.workflow import WorkflowExecution
 from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
-from app import hpc_resource
 from app.common import ProjectContext
-from app.config import auth_client, settings
-from app.exception import ClusterError
+from app.config import auth_client, db_client, settings
 from app.logger import L
 
 
@@ -75,40 +74,38 @@ def _register_workflow(
 ):
     # pylint: disable=too-many-positional-arguments):
     """Register workflow execution in nexus."""
-    # zip_name = f"{timestamp}.zip"
+    zip_name = f"{timestamp}.zip"
 
     # The environment must always hold the initial access token we received because it is used
     # as a key to track the updated tokens in auth sidecar service
-    # access_token = auth_client.refresh_token(
-    #     access_token=env["ACCESS_TOKEN"],
-    # )
-
-    # buffer_or_path.seek(0)
-    """
-    file_to_upload = FileToUpload(
-        filename=zip_name,
-        content_type="application/zip",
-        buffer_or_path=buffer_or_path,
+    access_token = auth_client.refresh_token(
+        access_token=env["ACCESS_TOKEN"],
     )
+
+    buffer_or_path.seek(0)
     entity = WorkflowExecution(
         name=f"{module}.{task}",
         description=f"{module}.{task}",
         module=module,
         task=task,
-        version=VERSION,
+        version=settings.app_version,
         configFileName=cfg_name,
         status="Running",
         startedAtTime=datetime.utcnow(),
     )
-    registered = register_entity(
+    registered = db_client.register(
         entity=entity,
-        files_to_upload=[file_to_upload],
         project_context=project_context,
-        token=token,
+        token=access_token,
     )
-    """
-    # return str(registered.id), registered.url
-    return ("0", "foo")
+    db_client.upload_content(
+        entity_id=registered.id,
+        entity_type=type(registered),
+        file_name=zip_name,
+        buffer=buffer_or_path,
+        content_type="application/zip",
+    )
+    return str(registered.id), registered.url
 
 
 def _register_workflow_provenance(
@@ -173,6 +170,7 @@ def _update_workflow_status(*, workflow_id, env, status):
 def _run_worker(cmd_params, env):
     workflow_id = env.get("NEXUS_WORKFLOW", None)
 
+    """
     try:
         cluster_login_info = hpc_resource.request_cluster_and_wait(
             api_url=settings.hpc_resource_provisioner_api_url,
@@ -188,10 +186,11 @@ def _run_worker(cmd_params, env):
             workflow_id=workflow_id,
         )
         raise RuntimeError("Cluster failed to be provisioned for task.") from e
-
     key = cluster_login_info.ssh_key
+    """
+    key = "foo"
     new_env = env.copy()
-    new_env["HPC_HEAD_NODE"] = cluster_login_info.head_node_ip
+    new_env["HPC_HEAD_NODE"] = "bar"  # cluster_login_info.head_node_ip
 
     try:
         with _ssh_agt(key) as ssh_auth_sock:
@@ -352,12 +351,13 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         access_token = self.request.headers.get("Authorization").replace("Bearer ", "")
         refresh_token = self.get_body_argument("refresh-token")
 
-        # register tokens in auth service
+        # validate & register tokens in auth service
         auth_client.register_tokens(
             access_token=access_token,
             refresh_token=refresh_token,
         )
 
+        # use the initial token as a key to get new tokens from auth sidecar
         env = {
             "KEYCLOAK_ACCESS_TOKEN": access_token,
         }

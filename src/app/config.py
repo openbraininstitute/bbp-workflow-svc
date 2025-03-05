@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Annotated
 
+from entitysdk.client import Client
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -95,3 +96,6 @@ INSTANCE_PROJECT_CONTEXT = ProjectContext(
 
 # Authentication client to use for token management
 auth_client = AuthClient(api_url=settings.auth_api_url, project_context=INSTANCE_PROJECT_CONTEXT)
+
+# entitycore client for entity management
+db_client = Client(api_url=settings.db_api_url, project_context=INSTANCE_PROJECT_CONTEXT)

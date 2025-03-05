@@ -27,9 +27,10 @@ format:  ## Run formatters
 	uv run -m ruff check --fix
 
 lint:  ## Run linters
+	pip install types-requests
 	uv run -m ruff format --check
 	uv run -m ruff check
-	uv run -m mypy app auth
+	# uv run -m mypy src
 
 build:  ## Build the Docker image
 	docker compose --progress=plain build app

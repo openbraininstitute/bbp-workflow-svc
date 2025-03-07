@@ -2,7 +2,7 @@
 name = "workflow-svc"
 description = "Workflow launcher service"
 readme = { file = "README.rst", content-type = "text/x-rst" }
-requires-python = ">=3.11"
+requires-python = "==3.12.*"
 license = { text = "Apache-2.0" }
 authors = [
   { name = "Blue Brain Project, EPFL" },

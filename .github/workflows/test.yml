@@ -9,6 +9,8 @@ on:
 jobs:
 
   lint:
+    - runs-on: ubuntu-latest
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -33,6 +35,8 @@ jobs:
       run: make lint
 
   unit:
+    - runs-on: ubuntu-latest
+
     - name: Checkout code
       uses: actions/checkout@v4
 

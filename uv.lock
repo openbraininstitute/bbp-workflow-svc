@@ -602,8 +602,8 @@ sdist = { url = "https://files.pythonhosted.org/packages/32/45/e4ace7881220bdf03
 
 [[package]]
 name = "entitysdk"
-version = "0.0.2.dev3"
-source = { git = "https://github.com/openbraininstitute/entitysdk?rev=workflow#1727176b870e3d15e642a3cd963344c9c4cac057" }
+version = "0.0.2.dev5"
+source = { git = "https://github.com/openbraininstitute/entitysdk?rev=workflow#52b6885455375b9c73bfe51f9bc1bed1cf8cbd80" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },

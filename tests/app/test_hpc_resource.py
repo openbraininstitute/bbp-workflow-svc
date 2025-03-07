@@ -183,8 +183,9 @@ def test_fetch_response_entry_missing_key():
 @patch("app.hpc_resource.request_cluster")
 @patch("app.hpc_resource.get_secret")
 @patch("app.hpc_resource.wait_for_cluster_ready")
+@patch("boto3.client")
 def test_request_cluster_and_wait(
-    mock_wait_for_cluster_ready, mock_get_secret, mock_request_cluster
+    mock_boto3, mock_wait_for_cluster_ready, mock_get_secret, mock_request_cluster
 ):
     mock_request_cluster.return_value = MockResponse(
         {"cluster": {"private_ssh_key_arn": "arn:aws:secretsmanager:123"}}

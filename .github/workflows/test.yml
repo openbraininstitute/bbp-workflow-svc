@@ -61,5 +61,5 @@ jobs:
     - name: Install requirements
       run: make install
 
-    - name: Run linters
+    - name: Run unit tests
       run: make test-local

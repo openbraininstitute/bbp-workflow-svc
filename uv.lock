@@ -602,14 +602,13 @@ sdist = { url = "https://files.pythonhosted.org/packages/32/45/e4ace7881220bdf03
 
 [[package]]
 name = "entitysdk"
-version = "0.0.1"
-source = { registry = "https://pypi.org/simple" }
+version = "0.0.2.dev3"
+source = { git = "https://github.com/openbraininstitute/entitysdk?rev=workflow#1727176b870e3d15e642a3cd963344c9c4cac057" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/62/6f0b829e5d4f9514ec6a478f2060e67e0dcc136e39a95d1777d639a7d1a8/entitysdk-0.0.1.tar.gz", hash = "sha256:bf2ea396d62e3f1d64e9737e44abfe10b4d2b99d633bf6e6565626efc0378b38", size = 23008 }
 
 [[package]]
 name = "executing"
@@ -2353,7 +2352,7 @@ dev = [
 requires-dist = [
     { name = "bbp-workflow" },
     { name = "boto3" },
-    { name = "entitysdk" },
+    { name = "entitysdk", git = "https://github.com/openbraininstitute/entitysdk?rev=workflow" },
     { name = "fastapi" },
     { name = "pydantic", specifier = ">2" },
     { name = "pydantic-settings" },

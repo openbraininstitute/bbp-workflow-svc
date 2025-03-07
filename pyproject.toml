@@ -18,7 +18,7 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  "entitysdk",
+  "entitysdk @ git+https://github.com/openbraininstitute/entitysdk@workflow",
   "bbp-workflow",
   "boto3",
   "sh",

@@ -3,9 +3,12 @@
 from typing import Annotated
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
+from fastapi.requests import Request
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer
 
 from auth import service
+from auth.config import keycloak_openid, settings
 from auth.logger import L
 from auth.models import (
     ProjectContext,
@@ -43,6 +46,54 @@ def _extract_project_context(
         L.warning("No project context provided.")
         return None
     return ProjectContext(virtual_lab_id=virtual_lab_id, project_id=project_id)
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Make health check."""
+    return {"status": "ok"}
+
+
+@app.get("/login")
+def login(request: Request):
+    """Redirect user to keycloak login and then call register-token-pair endpoint.
+
+    Use the authorization code flow to redirect a user to login, produce a code,
+    which is then used by the workflow to produce the token pair.
+    """
+    # Generate the authentication URL to redirect the user to Keycloak's login page.
+    auth_url = keycloak_openid.auth_url(redirect_uri=settings.redirect_uri)
+    L.info("User will be redirected to keycloak's login page.")
+    L.info("Redirect uri %s", settings.redirect_uri)
+    return RedirectResponse(auth_url)
+
+
+@app.get("/register-token-pair")
+def register_token_pair(request: Request):
+    code = request.query_params.get("code")
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing code parameter in request.")
+
+    try:
+        # Exchange the authorization code for tokens
+        token_response = keycloak_openid.token(redirect_uri=settings.redirect_uri, code=code)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Token exchange failed: {str(e)}")
+
+    token_info = service.validate_token_pair(
+        token_pair=token_pair_input,
+        project_context=project_context,
+    )
+    token_pair = TokenPair(
+        access_token=token_pair_input.access_token,
+        refresh_token=token_pair_input.refresh_token,
+        expires_at=token_info.expires_at,
+        subject_id=token_info.subject_id,
+    )
+    # store the pair in the storage using the initial access token as key.
+    TOKEN_STORAGE.add_token_pair(token_pair)
+    return {"message": "Tokens stored successfully"}
 
 
 @app.post("/store-refresh-token")

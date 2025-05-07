@@ -23,65 +23,67 @@ class Settings(BaseSettings):
 
     app_name: str = Field(
         ...,
-        env="APP_NAME",
+        alias="APP_NAME",
         description="The name of this application",
     )
-    app_version: str = Field(..., env="APP_VERSION", description="The version of this application.")
+    app_version: str = Field(
+        ..., alias="APP_VERSION", description="The version of this application."
+    )
     auth_api_url: str = Field(
         ...,
-        env="AUTH_API_URL",
+        alias="APP_AUTH_API_URL",
         description="The API URL of the auth sidecar service for token management.",
     )
     commit_sha: str = Field(
-        ..., env="COMMIT_SHA", description="The commit SHA that was used to build the application."
+        ...,
+        alias="APP_COMMIT_SHA",
+        description="The commit SHA that was used to build the application.",
     )
     db_api_url: str = Field(
         ...,
-        env="DB_API_URL",
+        alias="APP_DB_API_URL",
         description="The API URL of the database service (entitycore).",
     )
     debug: bool = Field(
         default=False,
-        env="DEBUG",
+        alias="APP_DEBUG",
         description="Whether to run in debug mode.",
     )
     hpc_resource_provisioner_api_url: str = Field(
         ...,
-        env="HPC_RESOURCE_PROVISIONER_API_URL",
+        alias="APP_HPC_RESOURCE_PROVISIONER_API_URL",
         description="The API URL of the HPC resource provisioner service.",
     )
     project_id: str = Field(
-        env="PROJECT_ID",
+        alias="APP_PROJECT_ID",
         description="The project id with which the service is associated.",
     )
     virtual_lab_id: str = Field(
         ...,
-        env="VIRTUAL_LAB_ID",
+        alias="APP_VIRTUAL_LAB_ID",
         description="The virtual lab id with which the service is associated.",
     )
     workflows_path: Path = Field(
         default=Path("."),
-        env="WORKFLOWS_PATH",
+        alias="APP_WORKFLOWS_PATH",
         description="The path to the workflows directory within the container.",
     )
     luigi_cfg_path: Annotated[Path, _path_exists] = Field(
         default=Path("/etc/luigi/luigi.cfg"),
-        env="LUIGI_CFG_PATH",
+        alias="APP_LUIGI_CFG_PATH",
         description="The path to the Luigi configuration file within the container.",
     )
     logging_cfg_path: Annotated[Path, _path_exists] = Field(
         default=Path("/code/logging.cfg"),
-        env="LOGGING_CFG_PATH",
+        alias="APP_LOGGING_CFG_PATH",
         description="The path to the logging configuration file within the container.",
     )
     idle_timeout: int = Field(
         default=30 * 60,
-        env="IDLE_TIMEOUT",
+        alias="APP_IDLE_TIMEOUT",
         description="The idle timeout for the workflow service in seconds.",
     )
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         extra="ignore",
     )
 

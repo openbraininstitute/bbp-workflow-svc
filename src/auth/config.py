@@ -1,5 +1,7 @@
 """Configuration for the auth service."""
 
+from typing import Annotated
+
 from keycloak import KeycloakOpenID
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,29 +12,32 @@ class Settings(BaseSettings):
 
     keycloak_server_url: str = Field(
         ...,
-        env="KEYCLOAK_SERVER_URL",
+        alias="AUTH_KEYCLOAK_SERVER_URL",
         description="Keycloak host URL. Example: https://keycloak.example.com",
     )
     keycloak_realm: str = Field(
         ...,
-        env="KEYCLOAK_REALM",
+        alias="AUTH_KEYCLOAK_REALM",
         description="Keycloak realm. Example: OBI",
     )
     keycloak_client_id: str = Field(
         ...,
-        env="KEYCLOAK_CLIENT_ID",
+        alias="AUTH_KEYCLOAK_CLIENT_ID",
         description="Keycloak client ID. Example: workflow-svc",
     )
     keycloak_client_secret: str = Field(
         ...,
-        env="KEYCLOAK_CLIENT_SECRET",
+        alias="AUTH_KEYCLOAK_CLIENT_SECRET",
         description="Keycloak client secret.",
     )
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+    redirect_uri: Annotated[
+        str,
+        Field(
+            alias="AUTH_REDIRECT_URI",
+            description="Redirect uri for keycloak after user authentication.",
+        ),
+    ]
+    model_config = SettingsConfigDict(extra="ignore")
 
 
 settings = Settings()

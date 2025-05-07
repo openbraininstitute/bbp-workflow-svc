@@ -20,7 +20,8 @@ apt-get install -qyy \
     -o APT::Install-Suggests=false \
     curl \
     rsync \
-    ssh
+    ssh \
+    git
 EOT
 
 # Copy uv from the uv stage

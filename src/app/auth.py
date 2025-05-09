@@ -1,92 +1,87 @@
-# SPDX-License-Identifier: Apache-2.0
+"""Token management api client."""
 
-"""Workflow Engine authentication."""
-
-import os
-from urllib.parse import urlencode
-
-import jwt
-from entity_management.state import get_offline_token, set_token
-from keycloak import KeycloakOpenID
-from tornado import escape
-from tornado.auth import OAuth2Mixin
-from tornado.web import RequestHandler
-
-AUTH_HOST = os.getenv("KC_HOST")
-CLIENT_ID = os.getenv("KC_CLIENT_ID")
-REALM = os.getenv("KC_REALM")
-SECRET = os.getenv("KC_SCR")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-SUBJECT = os.getenv("KC_SUB")
-# SESSION_ID = os.getenv("SESSION_ID")
-VIRTUAL_LAB = os.getenv("VIRTUAL_LAB")
-PROJECT = os.getenv("PROJECT")
-
-USER_INFO = f"{AUTH_HOST}/auth/realms/{REALM}/protocol/openid-connect/userinfo"
-
-KEYCLOAK = KeycloakOpenID(
-    server_url=f"{AUTH_HOST}/auth/", client_id=CLIENT_ID, client_secret_key=SECRET, realm_name=REALM
-)
+from app.common import ProjectContext
+from app.util import make_request
 
 
-class KeycloakOAuth2Mixin(OAuth2Mixin):
-    """Keycloak authentication using OAuth2."""
+class AuthClient:
+    """A client for the auth service."""
 
-    _OAUTH_AUTHORIZE_URL = f"{AUTH_HOST}/auth/realms/{REALM}/protocol/openid-connect/auth"
-    _OAUTH_ACCESS_TOKEN_URL = f"{AUTH_HOST}/auth/realms/{REALM}/protocol/openid-connect/token"
-    _OAUTH_LOGOUT_URL = f"{AUTH_HOST}/auth/realms/{REALM}/protocol/openid-connect/logout"
-    _OAUTH_USERINFO_URL = USER_INFO
+    def __init__(self, api_url: str, project_context: ProjectContext):
+        """Initialize the auth client.
 
-    async def get_authenticated_user(self, redirect_uri, code, client_id, client_secret):
-        """Handle the login, returning an access token."""
-        http = self.get_auth_http_client()
-        body = urlencode(
-            {
-                "redirect_uri": redirect_uri,
-                "code": code,
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "scope": "openid",
-                "grant_type": "authorization_code",
-            }
-        )
-        response = await http.fetch(
-            self._OAUTH_ACCESS_TOKEN_URL,
+        Args:
+            api_url: The URL of the auth service.
+            project_context: The project context.
+        """
+        self.api_url = api_url
+        self.project_context = project_context
+
+    def register_tokens(self, *, access_token: str, refresh_token: str) -> None:
+        """Register acces and refresh tokens in auth service.
+
+        The tokens are stored in the auth service using the initial access token as key.
+
+        Args:
+            access_token: The access token.
+            refresh_token: The refresh token.
+        """
+        _make_auth_request(
+            url=f"{self.api_url}/store-refresh-token",
             method="POST",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            body=body,
+            json={"refresh-token": refresh_token},
+            project_context=self.project_context,
+            token=access_token,
         )
-        return escape.json_decode(response.body)
+
+    def refresh_token(self, *, access_token: str) -> str:
+        """Refresh the access token.
+
+        Args:
+            access_token: The initial access token used to register the tokens.
+
+        Returns:
+            The new access token.
+        """
+        response = _make_auth_request(
+            url=f"{self.api_url}/refresh-token",
+            method="POST",
+            project_context=self.project_context,
+            token=access_token,
+        )
+        return response.json()["access-token"]
+
+    def validate_token(self, *, access_token: str) -> None:
+        """Validate the access token.
+
+        Args:
+            access_token: A valid access token.
+        """
+        _make_auth_request(
+            url=f"{self.api_url}/validate-token",
+            method="GET",
+            project_context=self.project_context,
+            token=access_token,
+        )
 
 
-class KeycloakAuthHandler(RequestHandler, KeycloakOAuth2Mixin):
-    """Auth request handler."""
-
-    # pylint: disable=abstract-method
-
-    async def get(self):
-        """."""
-        # assert SESSION_ID == self.get_cookie("sessionid")
-        url = self.get_argument("url", None)
-        if get_offline_token():
-            if url is not None:
-                self.redirect(url)
-            else:
-                self.set_status(204)
-        else:
-            code = self.get_argument("code", None)
-            if code is not None:
-                user = await self.get_authenticated_user(
-                    REDIRECT_URI % url, code, CLIENT_ID, SECRET
-                )
-                token = user["refresh_token"]
-                token_info = jwt.decode(token, options={"verify_signature": False})
-                client_id = token_info["azp"]
-                if client_id != CLIENT_ID:
-                    raise ValueError("Invalid client id")
-                # assert token_info["typ"] == "Offline"
-                set_token(token)
-                if url is not None:
-                    self.redirect(url)
-            else:
-                self.authorize_redirect(REDIRECT_URI % url, CLIENT_ID)
+def _make_auth_request(
+    *,
+    url: str,
+    method: str,
+    project_context: ProjectContext,
+    json: dict | None = None,
+    token: str,
+):
+    """Make an auth request."""
+    return make_request(
+        url=url,
+        method=method,
+        headers={
+            "project-id": project_context.project_id,
+            "virtual-lab-id": project_context.virtual_lab_id,
+            "Authorization": f"Bearer {token}",
+        },
+        json=json,
+        timeout=10,
+    )

@@ -17,17 +17,14 @@ from urllib.parse import urlparse, urlunparse
 import luigi.server
 import sh
 import tornado.web
+from entitysdk.models.workflow import WorkflowExecution
 
 # from entitysdk.models.workflow import WorkflowExecution
 from sh import ErrorReturnCode
 from tornado.httpclient import AsyncHTTPClient
 
-from app import __version__ as VERSION
-from app import hpc_resource
-from app.auth import KeycloakAuthHandler
 from app.common import ProjectContext
-from app.config import settings
-from app.exception import ClusterError
+from app.config import auth_client, db_client, settings
 from app.logger import L
 
 
@@ -77,37 +74,38 @@ def _register_workflow(
 ):
     # pylint: disable=too-many-positional-arguments):
     """Register workflow execution in nexus."""
-    # zip_name = f"{timestamp}.zip"
+    zip_name = f"{timestamp}.zip"
 
-    # token = env["KC_ACCESS_TOKEN"]
-    # token = KEYCLOAK.refresh_token(env["KC_REFRESH_TOKEN"])["access_token"]
-
-    # buffer_or_path.seek(0)
-    """
-    file_to_upload = FileToUpload(
-        filename=zip_name,
-        content_type="application/zip",
-        buffer_or_path=buffer_or_path,
+    # The environment must always hold the initial access token we received because it is used
+    # as a key to track the updated tokens in auth sidecar service
+    access_token = auth_client.refresh_token(
+        access_token=env["ACCESS_TOKEN"],
     )
+
+    buffer_or_path.seek(0)
     entity = WorkflowExecution(
         name=f"{module}.{task}",
         description=f"{module}.{task}",
         module=module,
         task=task,
-        version=VERSION,
+        version=settings.app_version,
         configFileName=cfg_name,
         status="Running",
         startedAtTime=datetime.utcnow(),
     )
-    registered = register_entity(
+    registered = db_client.register(
         entity=entity,
-        files_to_upload=[file_to_upload],
         project_context=project_context,
-        token=token,
+        token=access_token,
     )
-    """
-    # return str(registered.id), registered.url
-    return ("0", "foo")
+    db_client.upload_content(
+        entity_id=registered.id,
+        entity_type=type(registered),
+        file_name=zip_name,
+        buffer=buffer_or_path,
+        content_type="application/zip",
+    )
+    return str(registered.id), registered.url
 
 
 def _register_workflow_provenance(
@@ -172,6 +170,7 @@ def _update_workflow_status(*, workflow_id, env, status):
 def _run_worker(cmd_params, env):
     workflow_id = env.get("NEXUS_WORKFLOW", None)
 
+    """
     try:
         cluster_login_info = hpc_resource.request_cluster_and_wait(
             api_url=settings.hpc_resource_provisioner_api_url,
@@ -187,10 +186,11 @@ def _run_worker(cmd_params, env):
             workflow_id=workflow_id,
         )
         raise RuntimeError("Cluster failed to be provisioned for task.") from e
-
     key = cluster_login_info.ssh_key
+    """
+    key = "foo"
     new_env = env.copy()
-    new_env["HPC_HEAD_NODE"] = cluster_login_info.head_node_ip
+    new_env["HPC_HEAD_NODE"] = "bar"  # cluster_login_info.head_node_ip
 
     try:
         with _ssh_agt(key) as ssh_auth_sock:
@@ -249,7 +249,7 @@ class VersionHandler(tornado.web.RequestHandler):
     def get(self, *_, **__):
         """Get version."""
         # assert SESSION_ID == self.get_cookie("sessionid")
-        self.write(VERSION)
+        self.write(settings.app_version)
 
 
 class HealthzHandler(tornado.web.RequestHandler):
@@ -336,16 +336,6 @@ def _ssh_agt(key):
             pass
 
 
-def _handle_auth(token):
-    _, token_value = token.split(" ")
-
-    # token_info = jwt.decode(token_value, options={"verify_signature": False})
-    # if access token is used
-    # env["KC_REFRESH_TOKEN"], env["KC_ACCESS_TOKEN"] = _handle_auth(auth_token)
-
-    return {"KC_ACCESS_TOKEN": token_value}
-
-
 class ApiLaunchHandler(tornado.web.RequestHandler):
     """Launch task through API."""
 
@@ -358,12 +348,21 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
         #    return
         L.info("API launch: %s", task)
 
-        env = {}
+        access_token = self.request.headers.get("Authorization").replace("Bearer ", "")
+        refresh_token = self.get_body_argument("refresh-token")
+
+        # validate & register tokens in auth service
+        auth_client.register_tokens(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
+
+        # use the initial token as a key to get new tokens from auth sidecar
+        env = {
+            "KEYCLOAK_ACCESS_TOKEN": access_token,
+        }
         if settings.debug:
             env |= {"DEBUG": "True"}
-
-        if auth_token := self.request.headers.get("Authorization"):
-            env |= {"NEXUS_TOKEN": auth_token}
 
         # e.g. bbp_workflow.sbo.sim.task, RunSimCampaignMeta
         module_name, task_name = task.rsplit(".", 1)
@@ -371,11 +370,6 @@ class ApiLaunchHandler(tornado.web.RequestHandler):
 
         cfg_name = self.get_body_argument("cfg_name", None)
         L.info("Config name: %s", cfg_name)
-
-        # this should be a refresh token
-        auth_token = self.request.headers.get("Authorization")
-
-        env |= _handle_auth(auth_token)
 
         timestamp = f"{datetime.now():%Y-%m-%d_%H-%M-%S.%f}"
 
@@ -435,11 +429,10 @@ async def idle_culling(call_later_fn):
         luigi.server.stop()
 
 
-def main():
+def main(host, port):
     """Start the workflow launcher."""
     app = tornado.web.Application(
         [
-            ("/auth/", KeycloakAuthHandler),
             (r"/launch/([^/]+)/", ApiLaunchHandler),
             ("/dashboard/.*", DashboardHandler),
             ("/api/.*", DashboardHandler),
@@ -448,13 +441,9 @@ def main():
             ("/tags/", TagsHandler),
         ],
     )
-    app.listen(8100)
+    app.listen(port, address=host)
 
     call_later_fn = tornado.ioloop.IOLoop.current().call_later
     call_later_fn(settings.idle_timeout, idle_culling, call_later_fn)
 
     luigi.server.run(address="127.0.0.1")
-
-
-if __name__ == "__main__":
-    main()

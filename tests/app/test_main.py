@@ -9,7 +9,11 @@ def test_post_files_payload_storage(tmp_path):
     """."""
     files = {
         "test.py": [
-            {"body": b"dummy", "content_type": "application/octet-stream", "filename": "test.py"}
+            {
+                "body": b"dummy",
+                "content_type": "application/octet-stream",
+                "filename": "test.py",
+            }
         ]
     }
     buf, _ = _zip_files(files, None)

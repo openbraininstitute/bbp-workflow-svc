@@ -1,0 +1,103 @@
+services:
+  app:
+    build:
+      dockerfile: docker/Dockerfile.app
+    env_file: .env.app
+    ports:
+      - "127.0.0.1:8100:8100"
+    depends_on:
+      - auth
+      - entitycore
+      - db
+    networks:
+      - shared-network
+
+  auth:
+    build:
+      dockerfile: docker/Dockerfile.auth
+    env_file: .env.auth
+    ports:
+      - "127.0.0.1:8200:8200"
+    networks:
+      - shared-network
+
+  entitycore:
+    # image: entitycore:latest
+    build:
+      context: ../entitycore
+      dockerfile: Dockerfile
+      args:
+      - ENVIRONMENT=dev
+      - APP_NAME=entitycore
+      - APP_VERSION=latest
+      - COMMIT_SHA=asdf
+    ports:
+    - "127.0.0.1:8000:8000"
+    env_file: ../entitycore/.env.run-docker
+    develop:
+      watch:
+      - action: sync+restart
+        path: ../entitycore/app
+        target: /code/app
+      - action: rebuild
+        path: ../entitycore/uv.lock
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - shared-network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+    - POSTGRES_USER=entitycore
+    - POSTGRES_PASSWORD=entitycore
+    ports:
+    - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+      start_interval: 2s
+    restart: unless-stopped
+    volumes:
+    - pgdata:/var/lib/postgresql/data
+    command:
+    - postgres
+    - -clog_statement=all
+    - -clog_min_duration_statement=100ms
+    - -clog_lock_waits=on
+    networks:
+      - shared-network
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: entitycore
+      MINIO_ROOT_PASSWORD: entitycore
+    ports:
+      - 127.0.0.1:9000:9000
+      - 127.0.0.1:9001:9001
+    volumes:
+    - s3data:/data
+    entrypoint: sh
+    command:
+      - -cx
+      - |
+        mkdir -p /data/obi-private /data/obi-public &&
+        minio server /data --console-address :9001
+    networks:
+      - shared-network
+
+volumes:
+  pgdata: {}
+  s3data: {}
+
+networks:
+  shared-network:
+    external: true
+    name: shared-network

@@ -1,15 +1,8 @@
-[build-system]
-requires = [
-    "setuptools>=64",
-    "setuptools_scm>=8"
-]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "workflow-svc"
 description = "Workflow launcher service"
 readme = { file = "README.rst", content-type = "text/x-rst" }
-requires-python = ">=3.11"
+requires-python = "==3.12.*"
 license = { text = "Apache-2.0" }
 authors = [
   { name = "Blue Brain Project, EPFL" },
@@ -25,12 +18,15 @@ classifiers = [
   "Topic :: Utilities",
 ]
 dependencies = [
-  #"entitysdk",
+  "entitysdk @ git+https://github.com/openbraininstitute/entitysdk@workflow",
   "bbp-workflow",
   "boto3",
   "sh",
   "requests-aws4auth",
-  "pydantic>2"
+  "pydantic>2",
+  "pydantic-settings",
+  "fastapi",
+  "uvicorn"
 ]
 dynamic = ["version"]
 
@@ -47,9 +43,7 @@ Issues = "https://github.com/BlueBrain/bbp-workflow-svc/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools_scm]
-local_scheme = "no-local-version"
+include = ["app*", "auth*"]
 
 [tool.pytest.ini_options]
 addopts = [
@@ -57,9 +51,11 @@ addopts = [
     "-ra",
     "--import-mode=importlib",
     "--cov=app",
+    "--cov=auth",
     "--durations=10",
     "--durations-min=1.0",
 ]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
@@ -147,3 +143,15 @@ fail_under = 50
 show_error_codes = true
 ignore_missing_imports = true
 allow_redefinition = true
+explicit_packages_bases = true
+
+[tool.uv]
+dev-dependencies = [
+    "coverage[toml]",
+    "httpx",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "types-PyYAML",
+]

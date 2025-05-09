@@ -68,34 +68,6 @@ def login(request: Request):
     return RedirectResponse(auth_url)
 
 
-@app.get("/register-token-pair")
-def register_token_pair(request: Request):
-    code = request.query_params.get("code")
-
-    if not code:
-        raise HTTPException(status_code=400, detail="Missing code parameter in request.")
-
-    try:
-        # Exchange the authorization code for tokens
-        token_response = keycloak_openid.token(redirect_uri=settings.redirect_uri, code=code)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Token exchange failed: {str(e)}")
-
-    token_info = service.validate_token_pair(
-        token_pair=token_pair_input,
-        project_context=project_context,
-    )
-    token_pair = TokenPair(
-        access_token=token_pair_input.access_token,
-        refresh_token=token_pair_input.refresh_token,
-        expires_at=token_info.expires_at,
-        subject_id=token_info.subject_id,
-    )
-    # store the pair in the storage using the initial access token as key.
-    TOKEN_STORAGE.add_token_pair(token_pair)
-    return {"message": "Tokens stored successfully"}
-
-
 @app.post("/store-refresh-token")
 def store_refresh_token(
     body: Annotated[StoreRefreshTokenBody, Body()],
